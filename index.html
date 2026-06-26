@@ -184,10 +184,13 @@
 </div>
 
 <div id="legend">
-  FL = Front Left &nbsp; FR = Front Right<br>
-  RL = Rear Left &nbsp;&nbsp; RR = Rear Right<br>
-  Slider up = forward &nbsp; down = reverse<br>
-  Release to auto-center
+  <b>Keyboard</b><br>
+  Q / A &nbsp;= FL forward / reverse<br>
+  W / S &nbsp;= FR forward / reverse<br>
+  E / D &nbsp;= RL forward / reverse<br>
+  R / F &nbsp;&nbsp;= RR forward / reverse<br>
+  <br>
+  Hold key to accelerate &mdash; release to auto-center
 </div>
 
 <script type="importmap">
@@ -496,6 +499,31 @@ buildCar();
 const sliderValues  = [0, 0, 0, 0];   // -1 … 1
 const sliderPressed = [false, false, false, false];
 const SPRING_RATE   = 0.12;           // how fast sliders return per frame
+const KEY_RATE      = 0.055;          // how fast keyboard drives slider per frame
+
+// keyPress[i] = +1 (forward), -1 (reverse), 0 (idle)
+const keyPress = [0, 0, 0, 0];
+
+// Q/A = FL   W/S = FR   E/D = RL   R/F = RR
+const KEY_MAP = {
+  KeyQ: [0,  1], KeyA: [0, -1],
+  KeyW: [1,  1], KeyS: [1, -1],
+  KeyE: [2,  1], KeyD: [2, -1],
+  KeyR: [3,  1], KeyF: [3, -1],
+};
+
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const m = KEY_MAP[e.code];
+  if (m) { keyPress[m[0]] = m[1]; sliderPressed[m[0]] = true; }
+});
+window.addEventListener('keyup', e => {
+  const m = KEY_MAP[e.code];
+  if (m && keyPress[m[0]] === m[1]) {
+    keyPress[m[0]] = 0;
+    sliderPressed[m[0]] = false;
+  }
+});
 
 for (let i = 0; i < 4; i++) {
   const slider = document.getElementById(`s${i}`);
@@ -512,7 +540,11 @@ for (let i = 0; i < 4; i++) {
   slider.addEventListener('touchcancel', () => { sliderPressed[i] = false; });
 }
 
-window.addEventListener('mouseup', () => sliderPressed.fill(false));
+window.addEventListener('mouseup', () => {
+  for (let i = 0; i < 4; i++) {
+    if (keyPress[i] === 0) sliderPressed[i] = false;
+  }
+});
 
 // ─── RESET ────────────────────────────────────────────────────────────────────
 document.getElementById('reset-btn').addEventListener('click', () => {
@@ -543,15 +575,17 @@ function animate(time) {
   const dt = lastTime !== null ? Math.min((time - lastTime) / 1000, 0.05) : 1 / 60;
   lastTime = time;
 
-  // ── Spring sliders back to center ──
+  // ── Keyboard drives sliders; spring back when released ──
   for (let i = 0; i < 4; i++) {
-    if (!sliderPressed[i] && Math.abs(sliderValues[i]) > 0.001) {
+    if (keyPress[i] !== 0) {
+      sliderValues[i] = Math.max(-1, Math.min(1, sliderValues[i] + keyPress[i] * KEY_RATE));
+    } else if (!sliderPressed[i] && Math.abs(sliderValues[i]) > 0.001) {
       sliderValues[i] *= (1 - SPRING_RATE);
       if (Math.abs(sliderValues[i]) < 0.01) sliderValues[i] = 0;
-      const pct = Math.round(sliderValues[i] * 100);
-      document.getElementById(`s${i}`).value = pct;
-      document.getElementById(`v${i}`).textContent = pct + '%';
     }
+    const pct = Math.round(sliderValues[i] * 100);
+    document.getElementById(`s${i}`).value = pct;
+    document.getElementById(`v${i}`).textContent = pct + '%';
   }
 
   // ── Apply motors ──
