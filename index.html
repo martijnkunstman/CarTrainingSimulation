@@ -467,7 +467,7 @@ function buildTrack() {
       const my = WALL_H * 0.5;
 
       // Angle: rotate box local Z to align with tangent
-      const angle = Math.atan2(tdx, tdz);
+      const angle = Math.atan2(-tdz, tdx);
 
       const body = new CANNON.Body({ mass: 0, material: matWall });
       body.addShape(new CANNON.Box(new CANNON.Vec3(segLen * 0.5 + 0.05, WALL_H * 0.5, WALL_T * 0.5)));
