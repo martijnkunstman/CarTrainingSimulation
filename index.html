@@ -474,6 +474,8 @@ function buildTrack() {
       body.position.set(mx, my, mz);
       body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
       body._isWall = true;
+      body.collisionFilterGroup = 2;  // walls in their own group
+      body.collisionFilterMask  = -1; // walls still collide with car/wheels
       world.addBody(body);
 
       // Visual wall mesh
@@ -687,6 +689,7 @@ const sensorLines = SENSOR_ANGLES.map(() => {
   geo.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 0,0,1], 3));
   geo.setAttribute('color',    new THREE.Float32BufferAttribute([1,1,0, 1,0,0], 3));
   const line = new THREE.Line(geo, sensorLineMat);
+  line.frustumCulled = false;  // bounding sphere goes stale when vertices update each frame
   scene.add(line);
   return line;
 });
@@ -717,12 +720,13 @@ function updateSensors() {
     _rayTo.set(pos.x + dx * SENSOR_LENGTH, SY, pos.z + dz * SENSOR_LENGTH);
 
     _rayResult.reset();
-    world.raycastClosest(_rayFrom, _rayTo, { collisionFilterMask: -1 }, _rayResult);
+    // collisionFilterMask: 2 → only test against wall bodies (group 2), skipping car/wheels
+    world.raycastClosest(_rayFrom, _rayTo, { collisionFilterGroup: -1, collisionFilterMask: 2 }, _rayResult);
 
     let dist = SENSOR_LENGTH;
     let hitX = _rayTo.x, hitZ = _rayTo.z;
 
-    if (_rayResult.hasHit && _rayResult.body._isWall) {
+    if (_rayResult.hasHit) {
       dist = _rayResult.distance;
       hitX = _rayResult.hitPointWorld.x;
       hitZ = _rayResult.hitPointWorld.z;
