@@ -367,41 +367,34 @@ grid.material.transparent = true;
 scene.add(grid);
 
 // ─── TRACK ────────────────────────────────────────────────────────────────────
-// Open track control points — start ≠ finish, roughly 2× the old circular length.
-// Mix of tight hairpins, wide sweepers and chicanes bending left and right.
+// Open track — start ≠ finish.  Designed as one large non-crossing loop:
+//   • Left channel runs north  (x ≈ -10 .. 30)
+//   • Top sweeper connects     (x ≈ 30 .. 175)
+//   • Right channel runs south (x ≈ 155 .. 180)
+//   • Bottom return runs west  (x ≈ 40 .. 155, z < 38)
+// The left channel and bottom return are at least 32 m apart, so the
+// 11 m wide road never overlaps itself.
 const trackCtrl = [
-  [  0,   0],  // START — heading north
-  [  0,  35],  // long straight
-  [  8,  72],  // gentle right drift
-  [ 32,  98],  // wide right sweeper
-  [ 62, 108],  // apex
-  [ 88,  96],  // exit right, heading SE
-  [ 98,  70],  // tightening right
-  [ 86,  46],  // tight right — almost hairpin
-  [ 62,  38],  // heading west
-  [ 40,  44],  // left apex
-  [ 30,  62],  // exit left, heading north
-  [ 18,  90],  // gentle left
-  [  8, 116],  // chicane entry
-  [ 24, 132],  // chicane right flick
-  [ 48, 136],  // chicane exit
-  [ 76, 128],  // sweeper right
-  [106, 110],  // continuing right
-  [124,  86],  // heading south
-  [126,  56],  // short straight
-  [118,  28],  // slight left
-  [136,   6],  // right bend
-  [164,  -4],  // long right sweeper
-  [188,   8],  // apex
-  [200,  34],  // exit, heading north
-  [196,  66],  // slight left drift
-  [208,  98],  // right
-  [206, 132],  // left sweep start
-  [188, 158],  // left sweeper apex
-  [160, 172],  // exit heading west
-  [128, 178],  // straight
-  [ 96, 170],  // slight left
-  [ 68, 156],  // FINISH
+  [  8,   0],  // START — heading N along left channel
+  [  2,  38],  // slight left drift
+  [ -8,  72],  // gentle left S
+  [ -4, 105],  // back right
+  [ 10, 135],  // right sweep begins
+  [ 28, 158],  // right curve
+  [ 55, 175],  // apex top-left corner
+  [ 88, 182],  // top straight heading E
+  [122, 180],  // continuing E
+  [150, 168],  // right channel begins
+  [170, 148],  // tight right
+  [178, 120],  // heading S
+  [176,  88],  // slight left (straight)
+  [168,  58],  // left curve
+  [152,  35],  // heading W (bottom channel)
+  [128,  18],  // chicane kink
+  [102,  10],  // heading W
+  [ 76,  10],  // long W straight
+  [ 56,  20],  // gentle left
+  [ 40,  36],  // FINISH
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
 
 const trackCurve = new THREE.CatmullRomCurve3(trackCtrl, false, 'catmullrom', 0.5);
