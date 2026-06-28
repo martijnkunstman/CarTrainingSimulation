@@ -188,6 +188,19 @@
       line-height: 1.8;
       text-align: right;
     }
+
+    /* Mini-map */
+    #minimap {
+      position: fixed;
+      bottom: 24px;
+      left: 16px;
+      width: 180px;
+      height: 180px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(13, 17, 23, 0.82);
+      backdrop-filter: blur(6px);
+    }
   </style>
 </head>
 <body>
@@ -240,6 +253,8 @@
     <div class="spin-dot" id="d3"></div>
   </div>
 </div>
+
+<canvas id="minimap" width="180" height="180"></canvas>
 
 <div id="legend">
   <b>Keyboard</b><br>
@@ -789,6 +804,128 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   }
 });
 
+// ─── MINI-MAP ─────────────────────────────────────────────────────────────────
+const mmCanvas = document.getElementById('minimap');
+const mmCtx    = mmCanvas.getContext('2d');
+const MM_W     = mmCanvas.width;
+const MM_H     = mmCanvas.height;
+const MM_PAD   = 12;
+
+// Pre-sample track for minimap (center + left + right edges)
+const MM_SAMPLES = 120;
+const mmCenterPts = trackCurve.getSpacedPoints(MM_SAMPLES);
+const mmLeftPts   = [];
+const mmRightPts  = [];
+for (let i = 0; i <= MM_SAMPLES; i++) {
+  const p  = mmCenterPts[i % (MM_SAMPLES + 1)];
+  const p1 = mmCenterPts[(i + 1) % (MM_SAMPLES + 1)];
+  const tx = p1.x - p.x, tz = p1.z - p.z;
+  const len = Math.sqrt(tx * tx + tz * tz) || 1;
+  const nx = -tz / len, nz = tx / len;
+  mmLeftPts.push([p.x + nx * TRACK_HALF_W, p.z + nz * TRACK_HALF_W]);
+  mmRightPts.push([p.x - nx * TRACK_HALF_W, p.z - nz * TRACK_HALF_W]);
+}
+
+// Compute world-space bounds of the track for scaling
+let mmMinX = Infinity, mmMaxX = -Infinity, mmMinZ = Infinity, mmMaxZ = -Infinity;
+mmCenterPts.forEach(p => {
+  mmMinX = Math.min(mmMinX, p.x - TRACK_HALF_W);
+  mmMaxX = Math.max(mmMaxX, p.x + TRACK_HALF_W);
+  mmMinZ = Math.min(mmMinZ, p.z - TRACK_HALF_W);
+  mmMaxZ = Math.max(mmMaxZ, p.z + TRACK_HALF_W);
+});
+const mmScaleX = (MM_W - MM_PAD * 2) / (mmMaxX - mmMinX);
+const mmScaleZ = (MM_H - MM_PAD * 2) / (mmMaxZ - mmMinZ);
+const mmScale  = Math.min(mmScaleX, mmScaleZ);
+const mmOffX   = MM_PAD + ((MM_W - MM_PAD * 2) - (mmMaxX - mmMinX) * mmScale) * 0.5;
+const mmOffZ   = MM_PAD + ((MM_H - MM_PAD * 2) - (mmMaxZ - mmMinZ) * mmScale) * 0.5;
+
+function worldToMM(wx, wz) {
+  return [
+    mmOffX + (wx - mmMinX) * mmScale,
+    mmOffZ + (wz - mmMinZ) * mmScale,
+  ];
+}
+
+function drawMinimap() {
+  mmCtx.clearRect(0, 0, MM_W, MM_H);
+
+  // Road fill
+  mmCtx.beginPath();
+  mmLeftPts.forEach(([x, z], i) => {
+    const [px, pz] = worldToMM(x, z);
+    i === 0 ? mmCtx.moveTo(px, pz) : mmCtx.lineTo(px, pz);
+  });
+  for (let i = mmRightPts.length - 1; i >= 0; i--) {
+    const [x, z] = mmRightPts[i];
+    const [px, pz] = worldToMM(x, z);
+    mmCtx.lineTo(px, pz);
+  }
+  mmCtx.closePath();
+  mmCtx.fillStyle = 'rgba(80,80,90,0.7)';
+  mmCtx.fill();
+
+  // Edge lines
+  ['#ffdd00', '#cc3322'].forEach((color, side) => {
+    const pts = side === 0 ? mmLeftPts : mmRightPts;
+    mmCtx.beginPath();
+    pts.forEach(([x, z], i) => {
+      const [px, pz] = worldToMM(x, z);
+      i === 0 ? mmCtx.moveTo(px, pz) : mmCtx.lineTo(px, pz);
+    });
+    mmCtx.closePath();
+    mmCtx.strokeStyle = color;
+    mmCtx.lineWidth = 1;
+    mmCtx.stroke();
+  });
+
+  // Sensor rays
+  const cpos = carBody.position;
+  const [cx, cz] = worldToMM(cpos.x, cpos.z);
+  const fwdC = new CANNON.Vec3(0, 0, 1);
+  const rgtC = new CANNON.Vec3(1, 0, 0);
+  const fwd  = carBody.quaternion.vmult(fwdC);
+  const rgt  = carBody.quaternion.vmult(rgtC);
+  SENSOR_ANGLES.forEach((deg, i) => {
+    const rad  = deg * Math.PI / 180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+    const dx = fwd.x * cosA + rgt.x * sinA;
+    const dz = fwd.z * cosA + rgt.z * sinA;
+    const distText = sensorDistEls[i].textContent;
+    const dist = parseFloat(distText) || SENSOR_LENGTH;
+    const ex = cpos.x + dx * dist;
+    const ez = cpos.z + dz * dist;
+    const [epx, epz] = worldToMM(ex, ez);
+    const ratio = dist / SENSOR_LENGTH;
+    const r = Math.min(1, 2 * (1 - ratio));
+    const g = Math.min(1, 2 * ratio);
+    mmCtx.beginPath();
+    mmCtx.moveTo(cx, cz);
+    mmCtx.lineTo(epx, epz);
+    mmCtx.strokeStyle = `rgba(${Math.round(r*255)},${Math.round(g*255)},0,0.6)`;
+    mmCtx.lineWidth = 1;
+    mmCtx.stroke();
+  });
+
+  // Car icon (filled triangle pointing in forward direction)
+  const angle = Math.atan2(fwd.x, fwd.z);
+  const carSize = 5;
+  mmCtx.save();
+  mmCtx.translate(cx, cz);
+  mmCtx.rotate(angle);
+  mmCtx.beginPath();
+  mmCtx.moveTo(0, -carSize * 1.6);
+  mmCtx.lineTo(-carSize, carSize);
+  mmCtx.lineTo(carSize, carSize);
+  mmCtx.closePath();
+  mmCtx.fillStyle = '#cc2233';
+  mmCtx.strokeStyle = '#ffffff';
+  mmCtx.lineWidth = 1;
+  mmCtx.fill();
+  mmCtx.stroke();
+  mmCtx.restore();
+}
+
 // ─── HELPER VECS ──────────────────────────────────────────────────────────────
 const _axle = new CANNON.Vec3();
 const _latV  = new CANNON.Vec3();
@@ -854,8 +991,9 @@ function animate(time) {
     wheelMeshes[i].quaternion.copy(wb.quaternion);
   });
 
-  // ── Sensors ──
+  // ── Sensors + minimap ──
   updateSensors();
+  drawMinimap();
 
   // ── Spin indicator ──
   wheelBodies.forEach((wb, i) => {
