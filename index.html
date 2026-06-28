@@ -939,19 +939,18 @@ function drawMinimap() {
     mmCtx.stroke();
   });
 
-  // Car icon — centred, pointing up (canvas is already oriented to car forward)
+  // Car icon — centred at canvas centre, pointing up
   const carSize = 6;
   mmCtx.beginPath();
-  mmCtx.moveTo(0, -carSize * 1.6);
-  mmCtx.lineTo(-carSize, carSize);
-  mmCtx.lineTo(carSize, carSize);
+  mmCtx.moveTo(MM_CX,             MM_CZ - carSize * 1.6);
+  mmCtx.lineTo(MM_CX - carSize,   MM_CZ + carSize);
+  mmCtx.lineTo(MM_CX + carSize,   MM_CZ + carSize);
   mmCtx.closePath();
   mmCtx.fillStyle = '#cc2233';
   mmCtx.strokeStyle = '#ffffff';
   mmCtx.lineWidth = 1.5;
   mmCtx.fill();
   mmCtx.stroke();
-  mmCtx.restore(); // end car icon save
 
   mmCtx.restore(); // end circular clip
 
