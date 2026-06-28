@@ -48,6 +48,60 @@
     }
     #reset-btn:hover { background: rgba(88, 166, 255, 0.3); }
 
+    /* Sensor HUD */
+    #sensor-hud {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      color: #e6edf3;
+      background: rgba(13, 17, 23, 0.82);
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 11px;
+      backdrop-filter: blur(6px);
+      min-width: 170px;
+    }
+    #sensor-hud .s-title {
+      color: #8b949e;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .s-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .s-label {
+      width: 36px;
+      color: #8b949e;
+      font-size: 10px;
+      text-align: right;
+    }
+    .s-bar-bg {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .s-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      width: 100%;
+      background: #3fb950;
+      transition: width 0.05s, background 0.05s;
+    }
+    .s-dist {
+      width: 30px;
+      text-align: right;
+      font-size: 10px;
+      color: #58a6ff;
+    }
+
     /* Wheel controls */
     #controls {
       position: fixed;
@@ -88,7 +142,6 @@
       justify-content: center;
     }
 
-    /* Center tick mark */
     .slider-wrap::after {
       content: '';
       position: absolute;
@@ -146,6 +199,11 @@
   <div class="label" style="margin-top:6px">Heading</div>
   <div class="value"><span id="heading">0</span>°</div>
   <button id="reset-btn">↺ Reset</button>
+</div>
+
+<div id="sensor-hud">
+  <div class="s-title">Sensors (m)</div>
+  <!-- rows injected by JS -->
 </div>
 
 <div id="controls">
@@ -206,36 +264,41 @@ import * as THREE from 'three';
 import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const WHEEL_RADIUS    = 0.35;   // m
-const WHEEL_WIDTH     = 0.25;   // m
-const CAR_BODY_W      = 1.6;    // m  (side to side)
-const CAR_BODY_L      = 2.4;    // m  (front to back)
-const CAR_BODY_H      = 0.28;   // m  (height)
-const WHEEL_X_OUT     = 0.08;   // m  extra gap between body and wheel
-const WHEEL_Z_IN      = 0.45;   // m  how far front/rear wheels are from body ends
-const CAR_MASS        = 180;    // kg
-const WHEEL_MASS      = 10;     // kg
-const MAX_MOTOR_SPEED = 18;     // rad/s (~170 rpm)
-const MAX_MOTOR_FORCE = 350;    // N·m
-const GRIP            = 0.88;   // lateral grip factor per frame (1 = perfect)
-const SPIN_THRESHOLD  = 3;      // rad/s speed difference to count as spin
+const WHEEL_RADIUS    = 0.35;
+const WHEEL_WIDTH     = 0.25;
+const CAR_BODY_W      = 1.6;
+const CAR_BODY_L      = 2.4;
+const CAR_BODY_H      = 0.28;
+const WHEEL_X_OUT     = 0.08;
+const WHEEL_Z_IN      = 0.45;
+const CAR_MASS        = 180;
+const WHEEL_MASS      = 10;
+const MAX_MOTOR_SPEED = 18;
+const MAX_MOTOR_FORCE = 350;
+const GRIP            = 0.88;
+const SPIN_THRESHOLD  = 3;
+const START_Y         = WHEEL_RADIUS + CAR_BODY_H * 0.5 + 0.12;
 
-// Car body center starting height above ground
-const START_Y = WHEEL_RADIUS + CAR_BODY_H * 0.5 + 0.12;
+// Track geometry
+const TRACK_HALF_W  = 5.5;   // half-width of road (total road = 11 m)
+const WALL_H        = 1.2;   // wall height (m)
+const WALL_T        = 0.4;   // wall thickness (m)
+const N_ROAD        = 160;   // road ribbon segments
+const N_WALLS       = 80;    // wall segments per side
 
-// Wheel pivot positions in car body local frame
-// x: ± (half body width + gap + half wheel width)
-// y: wheel center y − car body center y (wheel sits on ground at WHEEL_RADIUS)
-// z: ± (half body length − indent)
+// Sensor config
+const SENSOR_ANGLES = [-90, -60, -35, -15, 0, 15, 35, 60, 90]; // degrees from forward
+const SENSOR_LENGTH = 8.0;   // metres
+
 const WX = CAR_BODY_W * 0.5 + WHEEL_X_OUT + WHEEL_WIDTH * 0.5;
 const WY = WHEEL_RADIUS - START_Y;
 const WZ = CAR_BODY_L * 0.5 - WHEEL_Z_IN;
 
 const WHEEL_OFFSETS = [
-  new CANNON.Vec3(-WX, WY,  WZ),   // 0 FL
-  new CANNON.Vec3( WX, WY,  WZ),   // 1 FR
-  new CANNON.Vec3(-WX, WY, -WZ),   // 2 RL
-  new CANNON.Vec3( WX, WY, -WZ),   // 3 RR
+  new CANNON.Vec3(-WX, WY,  WZ),
+  new CANNON.Vec3( WX, WY,  WZ),
+  new CANNON.Vec3(-WX, WY, -WZ),
+  new CANNON.Vec3( WX, WY, -WZ),
 ];
 
 // ─── THREE.JS SETUP ───────────────────────────────────────────────────────────
@@ -243,20 +306,19 @@ const canvas   = document.getElementById('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled  = true;
-renderer.shadowMap.type     = THREE.PCFSoftShadowMap;
-renderer.toneMapping        = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled   = true;
+renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
+renderer.toneMapping         = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a2535);
-scene.fog        = new THREE.FogExp2(0x1a2535, 0.018);
+scene.fog        = new THREE.FogExp2(0x1a2535, 0.012);
 
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
 camera.position.set(0, 5, -10);
 camera.lookAt(0, 0, 0);
 
-// Lights
 const ambient = new THREE.AmbientLight(0xffffff, 0.55);
 scene.add(ambient);
 
@@ -265,76 +327,177 @@ sun.position.set(15, 30, 20);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near   = 0.5;
-sun.shadow.camera.far    = 200;
-sun.shadow.camera.left   = -40;
-sun.shadow.camera.right  = 40;
-sun.shadow.camera.top    = 40;
-sun.shadow.camera.bottom = -40;
+sun.shadow.camera.far    = 300;
+sun.shadow.camera.left   = -80;
+sun.shadow.camera.right  = 80;
+sun.shadow.camera.top    = 80;
+sun.shadow.camera.bottom = -80;
 sun.shadow.bias          = -0.001;
 scene.add(sun);
 
 const fill = new THREE.HemisphereLight(0x4488aa, 0x223322, 0.4);
 scene.add(fill);
 
-// Ground
-const groundGeo = new THREE.PlaneGeometry(300, 300, 1, 1);
-const groundMat = new THREE.MeshLambertMaterial({ color: 0x2a3d2a });
+// Ground (under the whole scene)
+const groundGeo  = new THREE.PlaneGeometry(400, 400, 1, 1);
+const groundMat  = new THREE.MeshLambertMaterial({ color: 0x2a3d2a });
 const groundMesh = new THREE.Mesh(groundGeo, groundMat);
 groundMesh.rotation.x = -Math.PI / 2;
 groundMesh.receiveShadow = true;
 scene.add(groundMesh);
 
-// Grid
-const grid = new THREE.GridHelper(300, 60, 0x000000, 0x1e3a1e);
-grid.material.opacity    = 0.6;
+const grid = new THREE.GridHelper(400, 80, 0x000000, 0x1e3a1e);
+grid.material.opacity     = 0.4;
 grid.material.transparent = true;
 scene.add(grid);
 
-// Checkerboard markers for motion reference
-function makeMarkers() {
-  const geo = new THREE.BoxGeometry(1, 0.05, 1);
-  const mat = new THREE.MeshLambertMaterial({ color: 0x3a5a3a });
-  for (let x = -6; x <= 6; x += 3) {
-    for (let z = -30; z <= 30; z += 3) {
-      if ((x + z) % 6 === 0) {
-        const m = new THREE.Mesh(geo, mat);
-        m.position.set(x * 2, 0.025, z * 2);
-        m.receiveShadow = true;
-        scene.add(m);
-      }
+// ─── TRACK ────────────────────────────────────────────────────────────────────
+// Control points for a closed loop with varied curves (XZ plane, Y=0)
+const trackCtrl = [
+  [  0,   2], [  0,  22], [ -6,  40], [-22,  55], [-26,  72],
+  [-16,  88], [ -2,  98], [ 16, 102], [ 32,  96], [ 44,  80],
+  [ 46,  62], [ 40,  46], [ 46,  30], [ 36,  14], [ 18,   4],
+].map(([x, z]) => new THREE.Vector3(x, 0, z));
+
+const trackCurve = new THREE.CatmullRomCurve3(trackCtrl, true, 'catmullrom', 0.5);
+
+// Car starts near point [0,0] on the track; spawn at curve t=0 + a bit above ground
+const startPt  = trackCurve.getPoint(0);
+const startTan = trackCurve.getTangent(0);
+const SPAWN_X  = startPt.x;
+const SPAWN_Z  = startPt.z;
+// Heading angle so car faces the track tangent direction
+const SPAWN_ANGLE = Math.atan2(startTan.x, startTan.z);
+
+function buildTrack() {
+  // ── Road ribbon ──────────────────────────────────────────────────────────
+  const pts = trackCurve.getSpacedPoints(N_ROAD);
+  const roadVerts = [];
+  const roadUVs   = [];
+  const roadIdx   = [];
+
+  for (let i = 0; i <= N_ROAD; i++) {
+    const p  = pts[i % (N_ROAD + 1)];
+    const p1 = pts[(i + 1) % (N_ROAD + 1)];
+    const tx = p1.x - p.x, tz = p1.z - p.z;
+    const len = Math.sqrt(tx * tx + tz * tz) || 1;
+    const nx = -tz / len, nz = tx / len;  // left perpendicular
+
+    const lx = p.x + nx * TRACK_HALF_W,  lz = p.z + nz * TRACK_HALF_W;
+    const rx = p.x - nx * TRACK_HALF_W,  rz = p.z - nz * TRACK_HALF_W;
+
+    roadVerts.push(lx, 0.01, lz,  rx, 0.01, rz);
+    const t = i / N_ROAD;
+    roadUVs.push(0, t,  1, t);
+  }
+
+  for (let i = 0; i < N_ROAD; i++) {
+    const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+    roadIdx.push(a, b, c,  b, d, c);
+  }
+
+  const roadGeo = new THREE.BufferGeometry();
+  roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(roadVerts, 3));
+  roadGeo.setAttribute('uv',       new THREE.Float32BufferAttribute(roadUVs, 2));
+  roadGeo.setIndex(roadIdx);
+  roadGeo.computeVertexNormals();
+
+  const roadMat  = new THREE.MeshLambertMaterial({ color: 0x444444, side: THREE.DoubleSide });
+  const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+  roadMesh.receiveShadow = true;
+  scene.add(roadMesh);
+
+  // ── Edge lines (yellow) ───────────────────────────────────────────────────
+  const leftPts  = [], rightPts = [], centerPts = [];
+  for (let i = 0; i <= N_ROAD; i++) {
+    const p  = pts[i % (N_ROAD + 1)];
+    const p1 = pts[(i + 1) % (N_ROAD + 1)];
+    const tx = p1.x - p.x, tz = p1.z - p.z;
+    const len = Math.sqrt(tx * tx + tz * tz) || 1;
+    const nx = -tz / len, nz = tx / len;
+    leftPts.push(new THREE.Vector3(p.x + nx * TRACK_HALF_W, 0.04, p.z + nz * TRACK_HALF_W));
+    rightPts.push(new THREE.Vector3(p.x - nx * TRACK_HALF_W, 0.04, p.z - nz * TRACK_HALF_W));
+    centerPts.push(new THREE.Vector3(p.x, 0.04, p.z));
+  }
+
+  const edgeMat   = new THREE.LineBasicMaterial({ color: 0xffdd00 });
+  const centerMat = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 1.5, gapSize: 1.5 });
+
+  [leftPts, rightPts].forEach(arr => {
+    const geo = new THREE.BufferGeometry().setFromPoints(arr);
+    scene.add(new THREE.Line(geo, edgeMat));
+  });
+  const cGeo = new THREE.BufferGeometry().setFromPoints(centerPts);
+  const cLine = new THREE.Line(cGeo, centerMat);
+  cLine.computeLineDistances();
+  scene.add(cLine);
+
+  // ── Wall physics bodies ───────────────────────────────────────────────────
+  const wallPts = trackCurve.getSpacedPoints(N_WALLS);
+
+  for (let side = -1; side <= 1; side += 2) {  // +1 = left, -1 = right
+    for (let i = 0; i < N_WALLS; i++) {
+      const p  = wallPts[i];
+      const p1 = wallPts[(i + 1) % N_WALLS];
+
+      const tx = p1.x - p.x, tz = p1.z - p.z;
+      const segLen = Math.sqrt(tx * tx + tz * tz);
+      if (segLen < 0.001) continue;
+      const tdx = tx / segLen, tdz = tz / segLen;
+      const nx = -tdz, nz = tdx;  // left perp
+
+      // Wall center = segment midpoint + perpendicular offset to track edge + half wall thickness
+      const mx = (p.x + p1.x) * 0.5 + nx * side * (TRACK_HALF_W + WALL_T * 0.5);
+      const mz = (p.z + p1.z) * 0.5 + nz * side * (TRACK_HALF_W + WALL_T * 0.5);
+      const my = WALL_H * 0.5;
+
+      // Angle: rotate box local Z to align with tangent
+      const angle = Math.atan2(tdx, tdz);
+
+      const body = new CANNON.Body({ mass: 0, material: matWall });
+      body.addShape(new CANNON.Box(new CANNON.Vec3(segLen * 0.5 + 0.05, WALL_H * 0.5, WALL_T * 0.5)));
+      body.position.set(mx, my, mz);
+      body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+      body._isWall = true;
+      world.addBody(body);
+
+      // Visual wall mesh
+      const wGeo = new THREE.BoxGeometry(segLen + 0.1, WALL_H, WALL_T);
+      const wMat = new THREE.MeshPhongMaterial({ color: side > 0 ? 0x3355aa : 0x993322, shininess: 60 });
+      const wMesh = new THREE.Mesh(wGeo, wMat);
+      wMesh.position.set(mx, my, mz);
+      wMesh.rotation.y = angle;
+      wMesh.castShadow = true;
+      wMesh.receiveShadow = true;
+      scene.add(wMesh);
     }
   }
 }
-makeMarkers();
 
 // ─── CAR VISUAL ───────────────────────────────────────────────────────────────
 const carGroup = new THREE.Group();
 scene.add(carGroup);
 
-// Chassis
-const chassisGeo = new THREE.BoxGeometry(CAR_BODY_W, CAR_BODY_H, CAR_BODY_L);
-const chassisMat = new THREE.MeshPhongMaterial({ color: 0xcc2233, shininess: 120 });
+const chassisGeo  = new THREE.BoxGeometry(CAR_BODY_W, CAR_BODY_H, CAR_BODY_L);
+const chassisMat  = new THREE.MeshPhongMaterial({ color: 0xcc2233, shininess: 120 });
 const chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
 chassisMesh.castShadow = true;
 chassisMesh.receiveShadow = true;
 carGroup.add(chassisMesh);
 
-// Cabin
-const cabinGeo = new THREE.BoxGeometry(CAR_BODY_W * 0.72, CAR_BODY_H * 1.4, CAR_BODY_L * 0.48);
-const cabinMat = new THREE.MeshPhongMaterial({ color: 0x223344, shininess: 200, transparent: true, opacity: 0.85 });
+const cabinGeo  = new THREE.BoxGeometry(CAR_BODY_W * 0.72, CAR_BODY_H * 1.4, CAR_BODY_L * 0.48);
+const cabinMat  = new THREE.MeshPhongMaterial({ color: 0x223344, shininess: 200, transparent: true, opacity: 0.85 });
 const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
 cabinMesh.position.set(0, CAR_BODY_H * 1.2, -CAR_BODY_L * 0.04);
 cabinMesh.castShadow = true;
 carGroup.add(cabinMesh);
 
-// Front bumper
-const bumperGeo = new THREE.BoxGeometry(CAR_BODY_W * 0.9, CAR_BODY_H * 0.5, 0.1);
-const bumperMat = new THREE.MeshPhongMaterial({ color: 0x888888, shininess: 200 });
+const bumperGeo  = new THREE.BoxGeometry(CAR_BODY_W * 0.9, CAR_BODY_H * 0.5, 0.1);
+const bumperMat  = new THREE.MeshPhongMaterial({ color: 0x888888, shininess: 200 });
 const frontBumper = new THREE.Mesh(bumperGeo, bumperMat);
 frontBumper.position.set(0, -CAR_BODY_H * 0.25, CAR_BODY_L * 0.5 + 0.05);
 carGroup.add(frontBumper);
 
-// Headlights
 [-0.5, 0.5].forEach(sx => {
   const hGeo = new THREE.BoxGeometry(0.22, 0.1, 0.06);
   const hMat = new THREE.MeshPhongMaterial({ color: 0xffffcc, emissive: 0xffffaa, emissiveIntensity: 0.8 });
@@ -343,7 +506,6 @@ carGroup.add(frontBumper);
   carGroup.add(h);
 });
 
-// Taillights
 [-0.5, 0.5].forEach(sx => {
   const tGeo = new THREE.BoxGeometry(0.18, 0.1, 0.06);
   const tMat = new THREE.MeshPhongMaterial({ color: 0xff2200, emissive: 0xff1100, emissiveIntensity: 0.5 });
@@ -352,100 +514,92 @@ carGroup.add(frontBumper);
   carGroup.add(t);
 });
 
-// Wheels (visual groups)
-function makeWheelMesh(isLeft) {
+function makeWheelMesh() {
   const group = new THREE.Group();
-
-  // Tire
   const tireGeo = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_WIDTH, 28);
   const tireMat = new THREE.MeshPhongMaterial({ color: 0x151515, shininess: 20 });
   const tire = new THREE.Mesh(tireGeo, tireMat);
   tire.rotation.z = Math.PI / 2;
   tire.castShadow = true;
   group.add(tire);
-
-  // Rim (silver disk)
-  const rimGeo  = new THREE.CylinderGeometry(WHEEL_RADIUS * 0.62, WHEEL_RADIUS * 0.62, WHEEL_WIDTH + 0.01, 16);
-  const rimMat  = new THREE.MeshPhongMaterial({ color: 0xcccccc, shininess: 300 });
-  const rim     = new THREE.Mesh(rimGeo, rimMat);
+  const rimGeo = new THREE.CylinderGeometry(WHEEL_RADIUS * 0.62, WHEEL_RADIUS * 0.62, WHEEL_WIDTH + 0.01, 16);
+  const rimMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, shininess: 300 });
+  const rim    = new THREE.Mesh(rimGeo, rimMat);
   rim.rotation.z = Math.PI / 2;
   group.add(rim);
-
-  // Spokes
   for (let s = 0; s < 5; s++) {
     const spokeGeo = new THREE.BoxGeometry(WHEEL_WIDTH + 0.02, WHEEL_RADIUS * 0.08, WHEEL_RADIUS * 1.1);
     const spoke    = new THREE.Mesh(spokeGeo, rimMat);
     spoke.rotation.x = (s / 5) * Math.PI * 2;
-    spoke.position.set(0, 0, 0);
     group.add(spoke);
   }
-
-  // Hub cap
   const hubGeo = new THREE.CylinderGeometry(WHEEL_RADIUS * 0.18, WHEEL_RADIUS * 0.18, WHEEL_WIDTH + 0.02, 12);
   const hubMat = new THREE.MeshPhongMaterial({ color: 0x444466, shininess: 200 });
   const hub    = new THREE.Mesh(hubGeo, hubMat);
   hub.rotation.z = Math.PI / 2;
   group.add(hub);
-
   return group;
 }
 
-const wheelMeshes = WHEEL_OFFSETS.map((_, i) => {
-  const m = makeWheelMesh(i % 2 === 0);
+const wheelMeshes = WHEEL_OFFSETS.map(() => {
+  const m = makeWheelMesh();
   scene.add(m);
   return m;
 });
 
 // ─── CANNON-ES PHYSICS ────────────────────────────────────────────────────────
 const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.81, 0) });
-world.broadphase    = new CANNON.SAPBroadphase(world);
-world.allowSleep    = false;
+world.broadphase = new CANNON.SAPBroadphase(world);
+world.allowSleep = false;
 
-// Materials
 const matGround = new CANNON.Material('ground');
 const matWheel  = new CANNON.Material('wheel');
 const matBody   = new CANNON.Material('body');
+const matWall   = new CANNON.Material('wall');
 
 world.addContactMaterial(new CANNON.ContactMaterial(matWheel, matGround, {
-  friction:    0.72,
-  restitution: 0.05,
-  contactEquationStiffness:  1e8,
-  contactEquationRelaxation: 3,
+  friction: 0.72, restitution: 0.05,
+  contactEquationStiffness: 1e8, contactEquationRelaxation: 3,
   frictionEquationStiffness: 1e8,
 }));
 world.addContactMaterial(new CANNON.ContactMaterial(matBody, matGround, {
-  friction:    0.4,
-  restitution: 0.1,
+  friction: 0.4, restitution: 0.1,
+}));
+world.addContactMaterial(new CANNON.ContactMaterial(matWheel, matWall, {
+  friction: 0.1, restitution: 0.3,
+}));
+world.addContactMaterial(new CANNON.ContactMaterial(matBody, matWall, {
+  friction: 0.05, restitution: 0.35,
 }));
 
-// Ground plane
 const groundBody = new CANNON.Body({ mass: 0, material: matGround });
 groundBody.addShape(new CANNON.Plane());
 groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 world.addBody(groundBody);
 
-// Car body
+// Build track (wall physics bodies use matWall defined above)
+buildTrack();
+
 let carBody = null;
 let wheelBodies = [];
 let wheelConstraints = [];
 
 function buildCar() {
-  // Remove old bodies / constraints
   if (carBody) {
     world.removeBody(carBody);
     wheelBodies.forEach(wb => world.removeBody(wb));
     wheelConstraints.forEach(c => world.removeConstraint(c));
   }
 
-  // Chassis
   carBody = new CANNON.Body({
-    mass:            CAR_MASS,
-    material:        matBody,
-    linearDamping:   0.06,
-    angularDamping:  0.35,
+    mass:           CAR_MASS,
+    material:       matBody,
+    linearDamping:  0.06,
+    angularDamping: 0.35,
   });
   carBody.addShape(new CANNON.Box(new CANNON.Vec3(CAR_BODY_W / 2, CAR_BODY_H / 2, CAR_BODY_L / 2)));
-  carBody.position.set(0, START_Y, 0);
+  carBody.position.set(SPAWN_X, START_Y, SPAWN_Z);
+  carBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), SPAWN_ANGLE);
   world.addBody(carBody);
 
   wheelBodies = [];
@@ -458,14 +612,11 @@ function buildCar() {
       linearDamping:  0.05,
       angularDamping: 0.5,
     });
-
-    // Cylinder shape rotated so its axis is along X (left-right axle direction)
     const shape = new CANNON.Cylinder(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_WIDTH, 24);
     const sq = new CANNON.Quaternion();
     sq.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
     wb.addShape(shape, new CANNON.Vec3(), sq);
 
-    // World position of wheel
     const worldOffset = new CANNON.Vec3();
     carBody.quaternion.vmult(offset, worldOffset);
     wb.position.set(
@@ -473,11 +624,11 @@ function buildCar() {
       carBody.position.y + worldOffset.y,
       carBody.position.z + worldOffset.z
     );
+    wb.quaternion.copy(carBody.quaternion);
 
     world.addBody(wb);
     wheelBodies.push(wb);
 
-    // Hinge constraint: axle along car body X axis
     const c = new CANNON.HingeConstraint(carBody, wb, {
       pivotA: offset,
       axisA:  new CANNON.Vec3(1, 0, 0),
@@ -495,17 +646,103 @@ function buildCar() {
 
 buildCar();
 
+// ─── SENSORS ──────────────────────────────────────────────────────────────────
+// Build HUD rows
+const sensorHud = document.getElementById('sensor-hud');
+const sensorBarEls  = [];
+const sensorDistEls = [];
+
+SENSOR_ANGLES.forEach((deg, i) => {
+  const row = document.createElement('div');
+  row.className = 's-row';
+  row.innerHTML = `
+    <span class="s-label">${deg > 0 ? '+' : ''}${deg}°</span>
+    <div class="s-bar-bg"><div class="s-bar-fill" id="sb${i}"></div></div>
+    <span class="s-dist" id="sd${i}">—</span>
+  `;
+  sensorHud.appendChild(row);
+  sensorBarEls.push(row.querySelector(`#sb${i}`));
+  sensorDistEls.push(row.querySelector(`#sd${i}`));
+});
+
+// Sensor ray lines (visible in 3D)
+const sensorLineMat = new THREE.LineBasicMaterial({ vertexColors: true });
+const sensorLines = SENSOR_ANGLES.map(() => {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 0,0,1], 3));
+  geo.setAttribute('color',    new THREE.Float32BufferAttribute([1,1,0, 1,0,0], 3));
+  const line = new THREE.Line(geo, sensorLineMat);
+  scene.add(line);
+  return line;
+});
+
+const _rayFrom   = new CANNON.Vec3();
+const _rayTo     = new CANNON.Vec3();
+const _rayResult = new CANNON.RaycastResult();
+
+function updateSensors() {
+  const pos = carBody.position;
+  const SY  = pos.y; // cast from car center height
+
+  // Car forward (local +Z) and right (local +X) in world space
+  const fwdC = new CANNON.Vec3(0, 0, 1);
+  const rgtC = new CANNON.Vec3(1, 0, 0);
+  const fwd  = carBody.quaternion.vmult(fwdC);
+  const rgt  = carBody.quaternion.vmult(rgtC);
+
+  SENSOR_ANGLES.forEach((deg, i) => {
+    const rad  = deg * Math.PI / 180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+
+    // Sensor direction: rotate forward by angle around Y axis
+    const dx = fwd.x * cosA + rgt.x * sinA;
+    const dz = fwd.z * cosA + rgt.z * sinA;
+
+    _rayFrom.set(pos.x, SY, pos.z);
+    _rayTo.set(pos.x + dx * SENSOR_LENGTH, SY, pos.z + dz * SENSOR_LENGTH);
+
+    _rayResult.reset();
+    world.raycastClosest(_rayFrom, _rayTo, { collisionFilterMask: -1 }, _rayResult);
+
+    let dist = SENSOR_LENGTH;
+    let hitX = _rayTo.x, hitZ = _rayTo.z;
+
+    if (_rayResult.hasHit && _rayResult.body._isWall) {
+      dist = _rayResult.distance;
+      hitX = _rayResult.hitPointWorld.x;
+      hitZ = _rayResult.hitPointWorld.z;
+    }
+
+    // Update HUD
+    const ratio = dist / SENSOR_LENGTH;
+    const r = Math.min(1, 2 * (1 - ratio));
+    const g = Math.min(1, 2 * ratio);
+    const hex = `#${Math.round(r*255).toString(16).padStart(2,'0')}${Math.round(g*255).toString(16).padStart(2,'0')}00`;
+    sensorBarEls[i].style.width   = `${(ratio * 100).toFixed(0)}%`;
+    sensorBarEls[i].style.background = hex;
+    sensorDistEls[i].textContent  = dist.toFixed(1);
+
+    // Update 3D line
+    const posArr = sensorLines[i].geometry.attributes.position.array;
+    posArr[0] = pos.x; posArr[1] = SY; posArr[2] = pos.z;
+    posArr[3] = hitX;  posArr[4] = SY; posArr[5] = hitZ;
+    sensorLines[i].geometry.attributes.position.needsUpdate = true;
+
+    const colArr = sensorLines[i].geometry.attributes.color.array;
+    colArr[0] = r; colArr[1] = g; colArr[2] = 0;
+    colArr[3] = r; colArr[4] = g; colArr[5] = 0;
+    sensorLines[i].geometry.attributes.color.needsUpdate = true;
+  });
+}
+
 // ─── SLIDER STATE ─────────────────────────────────────────────────────────────
-const sliderValues  = [0, 0, 0, 0];   // -1 … 1
+const sliderValues  = [0, 0, 0, 0];
 const sliderPressed = [false, false, false, false];
-const SPRING_RATE   = 0.12;           // how fast sliders return per frame
-const KEY_RATE      = 0.055;          // how fast keyboard drives slider per frame
+const SPRING_RATE   = 0.12;
+const KEY_RATE      = 0.055;
 
-// keyPress[i] = +1 (forward), -1 (reverse), 0 (idle)
 const keyPress = [0, 0, 0, 0];
-
-// Q/A = FL   W/S = FR   E/D = RL   R/F = RR
-const KEY_MAP = {
+const KEY_MAP  = {
   KeyQ: [0,  1], KeyA: [0, -1],
   KeyW: [1,  1], KeyS: [1, -1],
   KeyE: [2,  1], KeyD: [2, -1],
@@ -527,12 +764,7 @@ window.addEventListener('keyup', e => {
 
 for (let i = 0; i < 4; i++) {
   const slider = document.getElementById(`s${i}`);
-  const valEl  = document.getElementById(`v${i}`);
-
-  slider.addEventListener('input', () => {
-    sliderValues[i] = parseInt(slider.value) / 100;
-    valEl.textContent = slider.value + '%';
-  });
+  slider.addEventListener('input',       () => { sliderValues[i] = parseInt(slider.value) / 100; });
   slider.addEventListener('mousedown',   () => { sliderPressed[i] = true; });
   slider.addEventListener('touchstart',  () => { sliderPressed[i] = true; }, { passive: true });
   slider.addEventListener('mouseup',     () => { sliderPressed[i] = false; });
@@ -559,15 +791,13 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 
 // ─── HELPER VECS ──────────────────────────────────────────────────────────────
 const _axle = new CANNON.Vec3();
-const _latV = new CANNON.Vec3();
+const _latV  = new CANNON.Vec3();
 
 // ─── ANIMATION LOOP ───────────────────────────────────────────────────────────
 const camDesired = new THREE.Vector3();
 const camLookAt  = new THREE.Vector3();
 let lastTime     = null;
-
-// Canonical forward direction for the car (+Z in model space)
-const FWD = new THREE.Vector3(0, 0, 1);
+const FWD        = new THREE.Vector3(0, 0, 1);
 
 function animate(time) {
   requestAnimationFrame(animate);
@@ -575,7 +805,7 @@ function animate(time) {
   const dt = lastTime !== null ? Math.min((time - lastTime) / 1000, 0.05) : 1 / 60;
   lastTime = time;
 
-  // ── Keyboard drives sliders; spring back when released ──
+  // ── Keyboard / slider spring ──
   for (let i = 0; i < 4; i++) {
     if (keyPress[i] !== 0) {
       sliderValues[i] = Math.max(-1, Math.min(1, sliderValues[i] + keyPress[i] * KEY_RATE));
@@ -590,37 +820,32 @@ function animate(time) {
 
   // ── Apply motors ──
   for (let i = 0; i < 4; i++) {
-    const v    = sliderValues[i];
-    const spd  = v * MAX_MOTOR_SPEED;
-    const frc  = Math.abs(v) * MAX_MOTOR_FORCE;
-    wheelConstraints[i].setMotorSpeed(spd);
-    wheelConstraints[i].setMotorMaxForce(frc);
+    const v = sliderValues[i];
+    wheelConstraints[i].setMotorSpeed(v * MAX_MOTOR_SPEED);
+    wheelConstraints[i].setMotorMaxForce(Math.abs(v) * MAX_MOTOR_FORCE);
   }
 
-  // ── Lateral grip: remove sideways velocity component from each wheel ──
-  // The axle direction (world space) is car body's local X, rotated by car quaternion
+  // ── Lateral grip ──
   _axle.set(1, 0, 0);
   carBody.quaternion.vmult(_axle, _axle);
 
   wheelBodies.forEach(wb => {
     const vDot = wb.velocity.dot(_axle);
-    // Component along axle (lateral slip) – remove GRIP fraction of it
     _latV.set(_axle.x * vDot, _axle.y * vDot, _axle.z * vDot);
     wb.velocity.x -= _latV.x * GRIP;
     wb.velocity.y -= _latV.y * GRIP;
     wb.velocity.z -= _latV.z * GRIP;
   });
 
-  // Also apply grip to car body
   const cbDot = carBody.velocity.dot(_axle);
   carBody.velocity.x -= _axle.x * cbDot * (GRIP * 0.7);
   carBody.velocity.y -= _axle.y * cbDot * (GRIP * 0.7);
   carBody.velocity.z -= _axle.z * cbDot * (GRIP * 0.7);
 
-  // ── Step physics ──
+  // ── Physics step ──
   world.step(1 / 60, dt, 3);
 
-  // ── Sync Three.js meshes to cannon bodies ──
+  // ── Sync meshes ──
   carGroup.position.copy(carBody.position);
   carGroup.quaternion.copy(carBody.quaternion);
 
@@ -629,36 +854,31 @@ function animate(time) {
     wheelMeshes[i].quaternion.copy(wb.quaternion);
   });
 
+  // ── Sensors ──
+  updateSensors();
+
   // ── Spin indicator ──
   wheelBodies.forEach((wb, i) => {
-    const angSpd    = wb.angularVelocity.length();
-    const linSpd    = wb.velocity.length();
-    const expectedW = linSpd / WHEEL_RADIUS;
-    const spinning  = angSpd > expectedW + SPIN_THRESHOLD && angSpd > 1;
-    const dot       = document.getElementById(`d${i}`);
-    if (spinning) dot.classList.add('spinning');
-    else          dot.classList.remove('spinning');
+    const angSpd   = wb.angularVelocity.length();
+    const linSpd   = wb.velocity.length();
+    const expected = linSpd / WHEEL_RADIUS;
+    const spinning = angSpd > expected + SPIN_THRESHOLD && angSpd > 1;
+    document.getElementById(`d${i}`).classList.toggle('spinning', spinning);
   });
 
   // ── Camera follow ──
   const carPos = carGroup.position;
   const carQ   = carGroup.quaternion;
-
-  // Camera offset in car local space: behind and above
   const localOffset = new THREE.Vector3(0, 3.5, -8);
   localOffset.applyQuaternion(carQ);
   camDesired.copy(carPos).add(localOffset);
   camera.position.lerp(camDesired, 0.06);
-
   camLookAt.lerp(new THREE.Vector3(carPos.x, carPos.y + 0.5, carPos.z), 0.08);
   camera.lookAt(camLookAt);
 
   // ── HUD ──
   const vel   = carBody.velocity;
-  const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z).toFixed(2);
-  document.getElementById('speed').textContent = speed;
-
-  // Heading: car forward in world space relative to north (+Z)
+  document.getElementById('speed').textContent = Math.sqrt(vel.x * vel.x + vel.z * vel.z).toFixed(2);
   const fwdWorld = FWD.clone().applyQuaternion(carGroup.quaternion);
   const heading  = Math.round(Math.atan2(fwdWorld.x, fwdWorld.z) * 180 / Math.PI);
   document.getElementById('heading').textContent = ((heading % 360) + 360) % 360;
