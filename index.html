@@ -375,26 +375,40 @@ scene.add(grid);
 // The left channel and bottom return are at least 32 m apart, so the
 // 11 m wide road never overlaps itself.
 const trackCtrl = [
-  [  8,   0],  // START — heading N along left channel
-  [  2,  38],  // slight left drift
-  [ -8,  72],  // gentle left S
-  [ -4, 105],  // back right
-  [ 10, 135],  // right sweep begins
-  [ 28, 158],  // right curve
-  [ 55, 175],  // apex top-left corner
-  [ 88, 182],  // top straight heading E
-  [122, 180],  // continuing E
-  [150, 168],  // right channel begins
-  [170, 148],  // tight right
-  [178, 120],  // heading S
-  [176,  88],  // slight left (straight)
-  [168,  58],  // left curve
-  [152,  35],  // heading W (bottom channel)
-  [128,  18],  // chicane kink
-  [102,  10],  // heading W
-  [ 76,  10],  // long W straight
-  [ 56,  20],  // gentle left
-  [ 40,  36],  // FINISH
+  // START — heading North up left channel
+  [ 10,   0],
+  [ 10,  35],
+  [ 10,  72],
+  [ 10, 110],
+  // Tight hairpin top-left (N → E)
+  [ 10, 138],
+  [ 14, 156],
+  [ 28, 166],
+  [ 45, 162],  // hairpin apex
+  [ 58, 155],
+  // S-bend top section heading E
+  [ 80, 162],
+  [100, 172],
+  [122, 162],
+  [142, 170],
+  // Tight corner top-right (E → S)
+  [160, 164],
+  [172, 152],
+  [175, 136],
+  [170, 120],  // corner apex
+  // Right channel heading S with chicane
+  [174,  95],
+  [168,  70],
+  // Tight corner bottom-right (S → W)
+  [162,  46],
+  [150,  30],
+  [132,  22],  // corner apex
+  // Bottom return heading W
+  [108,  14],
+  [ 82,  10],
+  [ 60,  14],
+  // FINISH
+  [ 42,  26],
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
 
 const trackCurve = new THREE.CatmullRomCurve3(trackCtrl, false, 'catmullrom', 0.5);
@@ -838,8 +852,12 @@ const MM_W     = mmCanvas.width;
 const MM_H     = mmCanvas.height;
 const MM_CX    = MM_W / 2;
 const MM_CZ    = MM_H / 2;
-const MM_VIEW  = 60;   // world metres visible from centre to canvas edge
-const MM_SCALE = MM_CX / MM_VIEW;
+let mmView = 60;   // world metres visible from centre to canvas edge (zoom)
+
+mmCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  mmView = Math.max(15, Math.min(220, mmView * (e.deltaY > 0 ? 1.18 : 0.847)));
+}, { passive: false });
 
 // Pre-sample track edges for minimap
 const MM_SAMPLES  = 250;
@@ -862,10 +880,11 @@ let _mmFwdX = 0, _mmFwdZ = 1, _mmRgtX = 1, _mmRgtZ = 0;
 let _mmCarX = 0, _mmCarZ = 0;
 
 function worldToMM(wx, wz) {
+  const scale = MM_CX / mmView;
   const dx = wx - _mmCarX, dz = wz - _mmCarZ;
   const r  =  dx * _mmRgtX + dz * _mmRgtZ;  // right component
   const f  =  dx * _mmFwdX + dz * _mmFwdZ;  // forward component
-  return [MM_CX + r * MM_SCALE, MM_CZ - f * MM_SCALE];
+  return [MM_CX - r * scale, MM_CZ - f * scale];  // negate r: canvas x+ = screen right = car left
 }
 
 function drawMinimap() {
