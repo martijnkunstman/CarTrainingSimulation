@@ -20,7 +20,7 @@ const STUCK_TIME   = 4;    // seconds
 const CRASH_DIST   = 0.9;  // metres
 const SPLINE_N     = 500;
 
-const AGENT_COLORS = [
+export const AGENT_COLORS = [
   0xff4444, 0x44ff44, 0x4488ff, 0xffcc00,
   0xff44ff, 0x44ffcc, 0xff8800, 0x88ff44,
 ];
@@ -241,7 +241,12 @@ class AIAgent {
     const timeout = this.episodeTime > EPISODE_MAX;
     const oob     = this.body.position.y < -10;
 
-    if (crashed || stuck || timeout || oob) this.kill();
+    // Off-track: too far from nearest spline centre point
+    const np = splinePts[this.curSplineIdx];
+    const ndx = this.body.position.x - np.x, ndz = this.body.position.z - np.z;
+    const offTrack = (ndx * ndx + ndz * ndz) > (TRACK_HALF_W + 1) * (TRACK_HALF_W + 1);
+
+    if (crashed || stuck || timeout || oob || offTrack) this.kill();
   }
 
   syncVisuals() {

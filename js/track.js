@@ -50,9 +50,9 @@ const trackCtrl = [
 
 export const trackCurve = new THREE.CatmullRomCurve3(trackCtrl, false, 'catmullrom', 0.5);
 
-// Spawn position and heading derived from the curve start
-const startPt  = trackCurve.getPoint(0);
-const startTan = trackCurve.getTangent(0);
+// Spawn a little way into the track so side sensors immediately see walls
+const startPt  = trackCurve.getPoint(0.04);
+const startTan = trackCurve.getTangent(0.04);
 export const SPAWN_X     = startPt.x;
 export const SPAWN_Z     = startPt.z;
 export const SPAWN_ANGLE = Math.atan2(startTan.x, startTan.z);

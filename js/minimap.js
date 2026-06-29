@@ -3,6 +3,7 @@ import { TRACK_HALF_W, SENSOR_ANGLES, SENSOR_LENGTH } from './config.js';
 import { trackCurve } from './track.js';
 import { carBody } from './car.js';
 import { sensorDistEls } from './sensors.js';
+import { AGENT_COLORS } from './training.js';
 
 const mmCanvas = document.getElementById('minimap');
 const mmCtx    = mmCanvas.getContext('2d');
@@ -50,7 +51,7 @@ function worldToMM(wx, wz) {
   return [MM_CX - r * scale, MM_CZ - f * scale];  // negate r: canvas x+ = screen right = car left
 }
 
-export function drawMinimap(overrideBody, overrideDists) {
+export function drawMinimap(overrideBody, overrideDists, agents) {
   const src  = overrideBody || carBody;
   const cpos = src.position;
   _mmCarX = cpos.x; _mmCarZ = cpos.z;
@@ -108,7 +109,24 @@ export function drawMinimap(overrideBody, overrideDists) {
     mmCtx.stroke();
   });
 
-  // Car icon — always centred, pointing up
+  // Other AI cars (drawn before focused car so it renders on top)
+  if (agents) {
+    agents.forEach(a => {
+      if (!a.alive) return;
+      if (a.body === src) return; // skip the focused car — drawn separately below
+      const [ax, az] = worldToMM(a.body.position.x, a.body.position.z);
+      const color = '#' + AGENT_COLORS[a.id % AGENT_COLORS.length].toString(16).padStart(6, '0');
+      mmCtx.beginPath();
+      mmCtx.arc(ax, az, 3.5, 0, Math.PI * 2);
+      mmCtx.fillStyle = color;
+      mmCtx.fill();
+      mmCtx.strokeStyle = 'rgba(255,255,255,0.6)';
+      mmCtx.lineWidth = 1;
+      mmCtx.stroke();
+    });
+  }
+
+  // Focused car icon — always centred, pointing up
   const carSize = 6;
   mmCtx.beginPath();
   mmCtx.moveTo(MM_CX,           MM_CZ - carSize * 1.6);

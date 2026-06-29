@@ -72,7 +72,7 @@ function animate(time) {
     const best = trainingManager.getBestAlive();
     if (best) {
       updateCamera(best.meshGroup);
-      drawMinimap(best.body, best.lastDists);
+      drawMinimap(best.body, best.lastDists, trainingManager.agents);
       updateSensors(best.body);
     }
 
