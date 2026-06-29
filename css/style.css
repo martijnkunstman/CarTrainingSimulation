@@ -192,7 +192,6 @@ input[type=range].vslider {
   display: block;
   width: 180px;
   height: 180px;
-  border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.15);
   background: rgba(13, 17, 23, 0.82);
   backdrop-filter: blur(6px);

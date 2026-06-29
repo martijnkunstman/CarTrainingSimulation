@@ -61,12 +61,6 @@ export function drawMinimap() {
 
   mmCtx.clearRect(0, 0, MM_W, MM_H);
 
-  // Circular clip
-  mmCtx.save();
-  mmCtx.beginPath();
-  mmCtx.arc(MM_CX, MM_CZ, MM_CX - 1, 0, Math.PI * 2);
-  mmCtx.clip();
-
   // Road fill
   mmCtx.beginPath();
   mmLeftPts.forEach(([x, z], i) => {
@@ -124,14 +118,5 @@ export function drawMinimap() {
   mmCtx.strokeStyle = '#ffffff';
   mmCtx.lineWidth   = 1.5;
   mmCtx.fill();
-  mmCtx.stroke();
-
-  mmCtx.restore();
-
-  // Circle border
-  mmCtx.beginPath();
-  mmCtx.arc(MM_CX, MM_CZ, MM_CX - 1, 0, Math.PI * 2);
-  mmCtx.strokeStyle = 'rgba(255,255,255,0.25)';
-  mmCtx.lineWidth   = 1.5;
   mmCtx.stroke();
 }
