@@ -53,23 +53,8 @@ const WHEEL_OFFSETS = [
 // of broadphase behaviour.
 function agentGroup(id) { return 1 << (4 + id); } // 16,32,64,128,256,512,1024,2048
 
-function spawnPos(agentId) {
-  // 2 rows of 4, each row 2.5 m apart laterally, rows 5 m apart longitudinally.
-  // This keeps all cars well inside the 11 m wide track and prevents overlap at spawn.
-  const col = agentId % 4;
-  const row = Math.floor(agentId / 4);
-  const lateral = (col - 1.5) * 2.5;          // −3.75, −1.25, +1.25, +3.75
-  const backward = row * 5;                    // row 0 = front, row 1 = 5 m behind
-
-  const fwdX =  Math.sin(SPAWN_ANGLE);
-  const fwdZ =  Math.cos(SPAWN_ANGLE);
-  const perpX =  Math.cos(SPAWN_ANGLE);
-  const perpZ = -Math.sin(SPAWN_ANGLE);
-
-  return {
-    x: SPAWN_X + perpX * lateral - fwdX * backward,
-    z: SPAWN_Z + perpZ * lateral - fwdZ * backward,
-  };
+function spawnPos() {
+  return { x: SPAWN_X, z: SPAWN_Z };
 }
 
 function buildPhysics(x, z, group) {
@@ -146,7 +131,7 @@ class AIAgent {
     this.id = id;
     this.nn = nn;
 
-    const { x, z } = spawnPos(id);
+    const { x, z } = spawnPos();
     const { body, wheels, constraints } = buildPhysics(x, z, agentGroup(id));
     this.body        = body;
     this.wheels      = wheels;
@@ -175,7 +160,7 @@ class AIAgent {
   respawn(nn) {
     this._reset(nn);
 
-    const { x, z } = spawnPos(this.id);
+    const { x, z } = spawnPos();
     this.body.position.set(x, START_Y, z);
     this.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), SPAWN_ANGLE);
     this.body.velocity.set(0, 0, 0);
