@@ -57,3 +57,39 @@
 **Version bump:** v2.0 → v2.1
 
 ---
+
+## 2026-06-29 (continued)
+
+### localStorage persistence + reset button (v2.1 → v2.1, no version bump at time)
+
+- `js/storage.js` — new module: `save()`, `load()`, `clearSave()`, `saveSummary()`. Genomes serialised as plain JSON arrays (Float32Array is not JSON-serialisable); restored to Float32Array on load.
+- `training.js` — constructor calls `load()` on startup and restores networks, generation, fitnessHistory, bestEver. `_nextGen()` calls `save()` after every generation so progress survives page reload.
+- `training.js` — new `resetTraining()` method: calls `clearSave()`, reinitialises GA from scratch, respawns agents if training is active.
+- `training-ui.js` — wires `#reset-training-btn` with a confirmation dialog; shows last saved generation in a "Saved" stats row via `saveSummary()`.
+- `index.html` — added "Saved" stat row and red "↺ Reset training data" button inside training panel.
+- `css/style.css` — red-tinted reset training button style.
+
+---
+
+### AI cars colliding with each other — fix (v3.0)
+
+**Root cause:** All 8 agents shared `collisionFilterGroup = 4`. cannon-es SAPBroadphase does not reliably filter same-group pairs; contacts leaked through to the narrowphase.
+
+**Fix:** Each agent now gets a unique power-of-2 group bit: `1 << (4 + id)` = 16, 32, 64 … 2048. Since every agent's `mask = 3` (binary 011) only covers bits 0–1, no AI group bit can ever appear in another AI body's mask — zero AI-vs-AI collisions guaranteed at broadphase level.
+
+**Also fixed:** Spawn stagger changed to 2 rows of 4 (2.5 m lateral, 5 m row separation) to avoid bodies overlapping at spawn.
+
+---
+
+### Minimap, spawn, and off-track kill improvements (v3.0 → v3.1)
+
+- All AI cars now spawn at the same single point (unique group bits make physical overlap harmless).
+- Minimap circular clip removed — full square canvas used.
+- `drawMinimap()` now accepts `agents[]` and draws a coloured dot for each alive AI agent at its world position; focused car (best alive) still rendered as white-outlined triangle on top.
+- Off-track kill condition added in `AIAgent.evaluate()`: if distance from nearest spline centre point > `TRACK_HALF_W + 1 m`, agent is killed.
+- Spawn point moved from `t = 0` to `t = 0.04` along the spline so side sensors immediately see walls at start.
+- `AGENT_COLORS` exported from `training.js` so minimap can use same palette.
+
+**Bug fixed (v3.1):** `TRACK_HALF_W` was used in `training.js` off-track check but missing from the `config.js` import — caused `ReferenceError` on training start.
+
+---
