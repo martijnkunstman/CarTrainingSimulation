@@ -94,6 +94,26 @@
 
 ---
 
+### Forward-wheel bonus + finish detection improvements (v3.5)
+
+- `training.js` — `findSplineIdx` changed from modulo-wrap to clamp (`Math.min/max`). Near the track end the wrap sent the search window back to index 0 (physically close to the finish), preventing `curSplineIdx` from ever reaching the threshold. Clamping fixes this.
+- `training.js` — Finish threshold updated to `splinePts.length - 6` (index ≥ 495 of 501).
+- `training.js` — Episode time limit now scales with generation: `EPISODE_MAX + generation` seconds (25 s base + 1 s per generation).
+- `training.js` — Forward-wheel fitness bonus for generations 1–5: each physics step, each wheel with output > 0 contributes its value scaled by `(6 - generation) / 5` × dt to a cumulative `forwardBonus` (full weight at gen 1, 20% at gen 5, gone from gen 6). Nudges early populations toward forward motion without dominating distance-based fitness later.
+- `main.js` — Speed and heading HUD shown for best alive AI agent during training mode.
+
+---
+
+### Track end detection + winner save (v3.4)
+
+- `training.js` — `AIAgent.evaluate()` returns `true` when the car reaches the last 5 spline points; `TrainingManager._onFinish(agent)` stops training, saves the winning NN genome, and dispatches `trainingFinished` event.
+- `storage.js` — `saveWinner(nn, generation)` and `loadWinner()` exports; winner stored under separate localStorage key `carTrainingWinner`.
+- `index.html` — `#finish-overlay` modal: "🏁 End of Track Reached!" with generation and fitness; click to dismiss.
+- `css/style.css` — finish overlay styles (centered, red-bordered dark modal).
+- `main.js` — listens for `trainingFinished`, shows overlay, resets AI mode toggle.
+
+---
+
 ### Simple car visuals with motor-color wheels (v3.3)
 
 - `js/car-visual.js` rewritten: removed cabin, bumper, headlights, taillights, spoke wheels. Simple flat box + cylinder wheels only. Exports `makeSimpleWheelMesh`, `motorValueToColor`, `carGroup`, `wheelMeshes`, `syncVisuals`.

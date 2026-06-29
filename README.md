@@ -87,18 +87,29 @@ Click **▶ Train AI** in the HUD to switch to training mode. 8 coloured AI cars
 | Mutation strength | 0.35 |
 | Crossover | Uniform (gene-wise) |
 
-**Fitness:** `maxSplineIndex × 10 + speed × 0.1`
+**Fitness:** `maxSplineIndex × 10 + speed × 0.1 + forwardBonus`
+
+- `forwardBonus` — generations 1–5 only: wheels spinning forward each second add a bonus scaled by `(6 − generation) / 5` (full weight at gen 1, fades to 20% at gen 5, gone from gen 6). Nudges early populations toward forward motion.
+
+**Episode time limit:** 25 s base + 1 s per generation — cars get progressively more time to explore as training matures.
 
 **Kill conditions:**
 - Any sensor reads < 0.9 m (wall collision)
 - Speed < 0.5 m/s for 4 consecutive seconds (stuck)
-- Episode exceeds 25 seconds (timeout)
+- Episode time limit exceeded
+- Car falls below y = −10 m
+- Car strays > 1 m beyond track half-width (off-track)
 
 ### Training UI (top-right panel in AI mode)
 
 - **Stats** — generation, alive count, best fitness ever, episode timer
 - **Network diagram** — edges coloured green/red by weight sign and magnitude; nodes coloured by activation value
 - **Fitness chart** — blue line = best fitness per generation, dim line = average
+- **Speed & heading** — top-left HUD shows live speed and heading of the best alive car
+
+### Finish detection
+
+When a car reaches the end of the track a **"🏁 End of Track Reached!"** overlay appears showing the generation and fitness. The winning brain is saved to `localStorage` under the key `carTrainingWinner` (separate from the regular training save). Click the overlay to dismiss.
 
 Click **⬛ Stop AI** to return to manual mode; the car respawns at the track start.
 
@@ -109,7 +120,7 @@ Click **⬛ Stop AI** to return to manual mode; the car respawns at the track st
 - `MAX_MOTOR_SPEED` is set high (60 rad/s) so the force limit, not the speed cap, determines terminal velocity.
 - `suppressPitch()` cancels 97% of local-X angular velocity after each physics step to prevent nose-lift from motor reaction torque.
 - Wall bodies use collision filter group 2; sensor raycasts target only group 2, ignoring the car and wheels.
-- Manual car uses collision filter group 8; AI cars use group 4 with mask 3 (ground + walls only), so AI cars do not collide with each other or with the manual car.
+- Manual car uses collision filter group 8; each AI car gets a unique power-of-2 group bit (`1 << (4 + id)`) with mask 3 (ground + walls only), so AI cars never collide with each other or the manual car.
 
 ---
 
