@@ -30,8 +30,8 @@ function animate(time) {
 
   tickControls();
   applyLateralGrip();
-  suppressPitch();
   world.step(1 / 60, dt, 3);
+  suppressPitch();  // after step so we cancel torque just applied by motors
   syncVisuals(carBody, wheelBodies);
   updateSensors();
   drawMinimap();
@@ -68,9 +68,9 @@ function suppressPitch() {
   _pitchAxis.set(1, 0, 0);
   carBody.quaternion.vmult(_pitchAxis, _pitchAxis);  // local X → world space
   const pitchRate = carBody.angularVelocity.dot(_pitchAxis);
-  carBody.angularVelocity.x -= _pitchAxis.x * pitchRate * 0.92;
-  carBody.angularVelocity.y -= _pitchAxis.y * pitchRate * 0.92;
-  carBody.angularVelocity.z -= _pitchAxis.z * pitchRate * 0.92;
+  carBody.angularVelocity.x -= _pitchAxis.x * pitchRate * 0.97;
+  carBody.angularVelocity.y -= _pitchAxis.y * pitchRate * 0.97;
+  carBody.angularVelocity.z -= _pitchAxis.z * pitchRate * 0.97;
 }
 
 function updateHud() {
