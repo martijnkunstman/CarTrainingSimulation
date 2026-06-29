@@ -4,6 +4,7 @@ import { scene } from './scene.js';
 import { world, matBody, matWheel } from './physics.js';
 import { trackCurve, SPAWN_X, SPAWN_Z, SPAWN_ANGLE } from './track.js';
 import { GeneticAlgorithm } from './evolution.js';
+import { save, load, clearSave } from './storage.js';
 import { applyLateralGrip, suppressPitch } from './car-physics.js';
 import { senseDistancesForBody } from './sensors.js';
 import {
@@ -265,6 +266,17 @@ export class TrainingManager {
     this._built       = false;
     this._agentSpeeds = new Array(POP_SIZE).fill(0);
     this._agentDists  = Array.from({ length: POP_SIZE }, () => []);
+
+    // Restore from localStorage if a save exists
+    const saved = load();
+    if (saved) {
+      this.ga.networks       = saved.networks;
+      this.ga.generation     = saved.generation;
+      this.ga.fitnessHistory = saved.fitnessHistory;
+      this.generation        = saved.generation + 1;
+      this.bestEver          = saved.bestEver;
+      console.log(`Resumed training from generation ${saved.generation}, best fitness ${saved.bestEver.toFixed(0)}`);
+    }
   }
 
   _build() {
@@ -337,6 +349,20 @@ export class TrainingManager {
     const newNets = this.ga.nextGeneration(fitnesses);
     this.generation = this.ga.generation + 1;
     this.agents.forEach((a, i) => a.respawn(newNets[i]));
+
+    // Persist after every generation so progress is never lost
+    save(this.ga, this.bestEver);
+  }
+
+  // Wipe localStorage and restart from generation 1 with fresh random networks
+  resetTraining() {
+    clearSave();
+    this.ga           = new GeneticAlgorithm({ popSize: POP_SIZE, eliteCount: 2, mutationRate: 0.12, mutationStrength: 0.35 });
+    this.generation   = 1;
+    this.bestEver     = 0;
+    if (this.active && this._built) {
+      this.agents.forEach((a, i) => a.respawn(this.ga.networks[i]));
+    }
   }
 }
 

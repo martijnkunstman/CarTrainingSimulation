@@ -103,6 +103,20 @@ body {
   border: 1px solid rgba(255,255,255,0.06);
 }
 
+#reset-training-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 5px 0;
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.35);
+  border-radius: 6px;
+  color: #f85149;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#reset-training-btn:hover { background: rgba(248, 81, 73, 0.28); }
+
 /* Sensor HUD */
 #sensor-hud {
   position: fixed;

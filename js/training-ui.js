@@ -1,15 +1,24 @@
 import { trainingManager } from './training.js';
+import { saveSummary } from './storage.js';
 
 // ── DOM elements ───────────────────────────────────────────────────────────────
-const panel        = document.getElementById('training-panel');
-const elGen        = document.getElementById('tp-gen');
-const elAlive      = document.getElementById('tp-alive');
-const elBest       = document.getElementById('tp-best');
-const elEpTime     = document.getElementById('tp-eptime');
-const nnCanvas     = document.getElementById('nn-canvas');
-const chartCanvas  = document.getElementById('chart-canvas');
-const nnCtx        = nnCanvas.getContext('2d');
-const chartCtx     = chartCanvas.getContext('2d');
+const panel           = document.getElementById('training-panel');
+const elGen           = document.getElementById('tp-gen');
+const elAlive         = document.getElementById('tp-alive');
+const elBest          = document.getElementById('tp-best');
+const elEpTime        = document.getElementById('tp-eptime');
+const elSaved         = document.getElementById('tp-saved');
+const nnCanvas        = document.getElementById('nn-canvas');
+const chartCanvas     = document.getElementById('chart-canvas');
+const nnCtx           = nnCanvas.getContext('2d');
+const chartCtx        = chartCanvas.getContext('2d');
+const resetTrainingBtn = document.getElementById('reset-training-btn');
+
+resetTrainingBtn.addEventListener('click', () => {
+  if (confirm('Reset all training data? This cannot be undone.')) {
+    trainingManager.resetTraining();
+  }
+});
 
 // ── NN Visualizer ──────────────────────────────────────────────────────────────
 const NN_W = nnCanvas.width;
@@ -165,10 +174,13 @@ export function updateTrainingUI() {
   const tm   = trainingManager;
   const best = tm.getBestAlive();
 
-  elGen.textContent   = tm.generation;
-  elAlive.textContent = `${tm.aliveCount} / 8`;
-  elBest.textContent  = tm.bestEver.toFixed(0);
+  elGen.textContent    = tm.generation;
+  elAlive.textContent  = `${tm.aliveCount} / 8`;
+  elBest.textContent   = tm.bestEver.toFixed(0);
   elEpTime.textContent = ((performance.now() - _episodeStart) / 1000).toFixed(1) + 's';
+
+  const sv = saveSummary();
+  elSaved.textContent = sv ? `gen ${sv.generation}` : 'none';
 
   // NN visualizer: use best alive agent's last activation
   if (best && best.lastInputs) {
