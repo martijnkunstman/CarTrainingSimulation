@@ -1,6 +1,6 @@
 # Car Training Simulation
 
-A browser-based 3D car simulation built with [Three.js](https://threejs.org/) and [cannon-es](https://github.com/pmndrs/cannon-es). No build step required — open `index.html` directly or serve via GitHub Pages.
+A browser-based 3D car simulation built with [Three.js](https://threejs.org/) and [cannon-es](https://github.com/pmndrs/cannon-es). Includes a genetic-evolution neural network that trains the car to drive autonomously. No build step required — open `index.html` directly or serve via GitHub Pages.
 
 Live demo: https://martijnkunstman.github.io/CarTrainingSimulation/
 
@@ -9,36 +9,43 @@ Live demo: https://martijnkunstman.github.io/CarTrainingSimulation/
 ## Features
 
 - **4-wheel independent motor control** — each wheel has its own throttle slider (FL, FR, RL, RR)
-- **Realistic physics** — rigid body dynamics via cannon-es; hinge constraints for wheel axles; lateral grip simulation
+- **Realistic physics** — rigid body dynamics via cannon-es; hinge constraints for wheel axles; lateral grip and pitch suppression
 - **Distance sensors** — 9 raycasts (−90° to +90°) visualised as colour-coded lines in 3D and as bars in the HUD
 - **Minimap** — car-centred, car-forward-up; scroll-wheel + buttons to zoom
 - **Spin indicator** — red dot per wheel when angular velocity diverges from road speed
-- **Non-crossing track** — CatmullRom spline with hairpins, S-bends and a chicane; open start/finish
+- **Non-crossing track** — CatmullRom spline with hairpins, S-bends and a chicane
+- **Neural network training** — 8 AI cars evolve simultaneously using a genetic algorithm; live NN visualiser and fitness chart
 
 ---
 
 ## File Structure
 
 ```
-index.html          – HTML structure, importmap, entry point
+index.html              – HTML structure, importmap, entry point
 css/
-  style.css         – all UI styles
+  style.css             – all UI styles
 js/
-  config.js         – all constants (car dimensions, physics tuning, track/sensor config)
-  scene.js          – Three.js renderer, scene, camera, lights, ground mesh
-  physics.js        – cannon-es world, materials, contact materials, ground body
-  track.js          – track spline, spawn point, road ribbon, edge lines, wall bodies
-  car.js            – car body, wheel bodies, hinge constraints, buildCar()
-  car-visual.js     – Three.js car and wheel meshes, syncVisuals()
-  sensors.js        – sensor HUD rows, 3D ray lines, updateSensors()
-  minimap.js        – minimap canvas, zoom controls, drawMinimap()
-  controls.js       – keyboard/slider input, motor application, spin indicators
-  main.js           – animation loop, lateral grip, HUD update, entry point
+  config.js             – all constants (car dimensions, physics tuning, track/sensor config)
+  scene.js              – Three.js renderer, scene, camera, lights, ground mesh
+  physics.js            – cannon-es world, materials, contact materials, ground body
+  track.js              – track spline, spawn point, road ribbon, edge lines, wall bodies
+  car.js                – manual car body, wheel bodies, hinge constraints, buildCar()
+  car-visual.js         – Three.js car and wheel meshes, syncVisuals()
+  car-physics.js        – applyLateralGrip() and suppressPitch() (shared by manual + AI cars)
+  sensors.js            – sensor HUD rows, 3D ray lines, updateSensors(), senseDistancesForBody()
+  minimap.js            – minimap canvas, zoom controls, drawMinimap()
+  controls.js           – keyboard/slider input, motor application, spin indicators
+  nn.js                 – NeuralNetwork class (genome, forward pass, clone, mutate, crossover)
+  evolution.js          – GeneticAlgorithm class (elitism, crossover, mutation, fitness history)
+  training.js           – TrainingManager and AIAgent (8 simultaneous physics cars)
+  training-ui.js        – NN visualiser canvas, fitness history chart, stats panel
+  main.js               – animation loop, manual/AI mode toggle, entry point
+process.md              – development log
 ```
 
 ---
 
-## Controls
+## Manual Controls
 
 | Key | Action |
 |-----|--------|
@@ -54,11 +61,55 @@ Use the on-screen sliders for the same control via mouse or touch.
 
 ---
 
+## Neural Network Training
+
+Click **▶ Train AI** in the HUD to switch to training mode. 8 coloured AI cars spawn at the track start and begin evolving.
+
+### Architecture
+
+| Layer | Size | Activation |
+|-------|------|-----------|
+| Input | 10 | — |
+| Hidden | 16 | tanh |
+| Output | 4 | tanh |
+
+**Inputs:** 9 sensor distances (each normalised 0–1) + forward speed (normalised 0–1)  
+**Outputs:** FL, FR, RL, RR motor values (−1 = full reverse, +1 = full forward)  
+**Genome:** 244 parameters as a `Float32Array`
+
+### Evolution
+
+| Parameter | Value |
+|-----------|-------|
+| Population | 8 cars |
+| Elites kept | 2 |
+| Mutation rate | 12% |
+| Mutation strength | 0.35 |
+| Crossover | Uniform (gene-wise) |
+
+**Fitness:** `maxSplineIndex × 10 + speed × 0.1`
+
+**Kill conditions:**
+- Any sensor reads < 0.9 m (wall collision)
+- Speed < 0.5 m/s for 4 consecutive seconds (stuck)
+- Episode exceeds 25 seconds (timeout)
+
+### Training UI (top-right panel in AI mode)
+
+- **Stats** — generation, alive count, best fitness ever, episode timer
+- **Network diagram** — edges coloured green/red by weight sign and magnitude; nodes coloured by activation value
+- **Fitness chart** — blue line = best fitness per generation, dim line = average
+
+Click **⬛ Stop AI** to return to manual mode; the car respawns at the track start.
+
+---
+
 ## Physics Notes
 
-- `MAX_MOTOR_SPEED` is set high (60 rad/s) so the force limit, not the speed cap, determines terminal velocity. This means 4WD produces ~2× the top speed of 2WD.
-- High `angularDamping` (0.92) on the car body suppresses pitch/roll from motor reaction torque, preventing the car from bouncing during acceleration.
-- Wall bodies use collision filter group 2; sensor raycasts target only group 2, so they ignore the car and wheels.
+- `MAX_MOTOR_SPEED` is set high (60 rad/s) so the force limit, not the speed cap, determines terminal velocity.
+- `suppressPitch()` cancels 97% of local-X angular velocity after each physics step to prevent nose-lift from motor reaction torque.
+- Wall bodies use collision filter group 2; sensor raycasts target only group 2, ignoring the car and wheels.
+- Manual car uses collision filter group 8; AI cars use group 4 with mask 3 (ground + walls only), so AI cars do not collide with each other or with the manual car.
 
 ---
 
