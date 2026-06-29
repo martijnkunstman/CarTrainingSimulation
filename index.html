@@ -317,7 +317,7 @@ const CAR_BODY_L      = 2.4;
 const CAR_BODY_H      = 0.28;
 const WHEEL_X_OUT     = 0.08;
 const WHEEL_Z_IN      = 0.45;
-const CAR_MASS        = 180;
+const CAR_MASS        = 500;
 const WHEEL_MASS      = 10;
 const MAX_MOTOR_SPEED = 60;   // high cap so force (not speed limit) determines terminal velocity
 const MAX_MOTOR_FORCE = 280;  // per wheel — 4 wheels give 4× total force → higher top speed
@@ -643,12 +643,12 @@ const matBody   = new CANNON.Material('body');
 const matWall   = new CANNON.Material('wall');
 
 world.addContactMaterial(new CANNON.ContactMaterial(matWheel, matGround, {
-  friction: 0.72, restitution: 0.05,
+  friction: 0.72, restitution: 0.0,
   contactEquationStiffness: 1e8, contactEquationRelaxation: 3,
   frictionEquationStiffness: 1e8,
 }));
 world.addContactMaterial(new CANNON.ContactMaterial(matBody, matGround, {
-  friction: 0.4, restitution: 0.1,
+  friction: 0.4, restitution: 0.0,
 }));
 world.addContactMaterial(new CANNON.ContactMaterial(matWheel, matWall, {
   friction: 0.1, restitution: 0.3,
@@ -679,8 +679,8 @@ function buildCar() {
   carBody = new CANNON.Body({
     mass:           CAR_MASS,
     material:       matBody,
-    linearDamping:  0.06,
-    angularDamping: 0.35,
+    linearDamping:  0.08,
+    angularDamping: 0.92,
   });
   carBody.addShape(new CANNON.Box(new CANNON.Vec3(CAR_BODY_W / 2, CAR_BODY_H / 2, CAR_BODY_L / 2)));
   carBody.position.set(SPAWN_X, START_Y, SPAWN_Z);
@@ -695,7 +695,7 @@ function buildCar() {
       mass:           WHEEL_MASS,
       material:       matWheel,
       linearDamping:  0.05,
-      angularDamping: 0.5,
+      angularDamping: 0.85,
     });
     const shape = new CANNON.Cylinder(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_WIDTH, 24);
     const sq = new CANNON.Quaternion();
