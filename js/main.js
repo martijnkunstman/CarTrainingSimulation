@@ -45,10 +45,10 @@ aiToggleBtn.addEventListener('click', () => {
 const _fwd = new THREE.Vector3(0, 0, 1);
 let lastTime = null;
 
-function updateHud() {
-  const vel = carBody.velocity;
+function updateHud(body, quaternion) {
+  const vel = body.velocity;
   document.getElementById('speed').textContent = Math.sqrt(vel.x * vel.x + vel.z * vel.z).toFixed(2);
-  const fwdWorld = _fwd.clone().applyQuaternion(carGroup.quaternion);
+  const fwdWorld = _fwd.clone().applyQuaternion(quaternion);
   const heading  = Math.round(Math.atan2(fwdWorld.x, fwdWorld.z) * 180 / Math.PI);
   document.getElementById('heading').textContent = ((heading % 360) + 360) % 360;
 }
@@ -74,6 +74,7 @@ function animate(time) {
       updateCamera(best.meshGroup);
       drawMinimap(best.body, best.lastDists, trainingManager.agents);
       updateSensors(best.body);
+      updateHud(best.body, best.meshGroup.quaternion);
     }
 
     updateTrainingUI();
@@ -90,7 +91,7 @@ function animate(time) {
     drawMinimap();
     updateSpinIndicators();
     updateCamera(carGroup);
-    updateHud();
+    updateHud(carBody, carGroup.quaternion);
   }
 
   renderer.render(scene, camera);
