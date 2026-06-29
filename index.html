@@ -190,17 +190,42 @@
     }
 
     /* Mini-map */
-    #minimap {
+    #minimap-wrap {
       position: fixed;
       bottom: 24px;
       left: 16px;
+    }
+    #minimap {
+      display: block;
       width: 180px;
       height: 180px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(13, 17, 23, 0.82);
       backdrop-filter: blur(6px);
+      cursor: crosshair;
     }
+    .mm-zoom {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      display: flex;
+      gap: 3px;
+    }
+    .mm-zoom button {
+      width: 22px;
+      height: 22px;
+      background: rgba(13, 17, 23, 0.88);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 5px;
+      color: #e6edf3;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .mm-zoom button:hover { background: rgba(88,166,255,0.25); }
   </style>
 </head>
 <body>
@@ -254,7 +279,13 @@
   </div>
 </div>
 
-<canvas id="minimap" width="180" height="180"></canvas>
+<div id="minimap-wrap">
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div class="mm-zoom">
+    <button id="mm-minus" title="Zoom out">−</button>
+    <button id="mm-plus"  title="Zoom in">+</button>
+  </div>
+</div>
 
 <div id="legend">
   <b>Keyboard</b><br>
@@ -288,11 +319,11 @@ const WHEEL_X_OUT     = 0.08;
 const WHEEL_Z_IN      = 0.45;
 const CAR_MASS        = 180;
 const WHEEL_MASS      = 10;
-const MAX_MOTOR_SPEED = 18;
-const MAX_MOTOR_FORCE = 350;
+const MAX_MOTOR_SPEED = 60;   // high cap so force (not speed limit) determines terminal velocity
+const MAX_MOTOR_FORCE = 280;  // per wheel — 4 wheels give 4× total force → higher top speed
 const GRIP            = 0.88;
 const SPIN_THRESHOLD  = 3;
-const START_Y         = WHEEL_RADIUS + CAR_BODY_H * 0.5 + 0.12;
+const START_Y         = WHEEL_RADIUS + CAR_BODY_H * 0.5 + 0.01;  // minimal clearance — removes float gap
 
 // Track geometry
 const TRACK_HALF_W  = 5.5;   // half-width of road (total road = 11 m)
@@ -858,6 +889,9 @@ mmCanvas.addEventListener('wheel', e => {
   e.preventDefault();
   mmView = Math.max(15, Math.min(220, mmView * (e.deltaY > 0 ? 1.18 : 0.847)));
 }, { passive: false });
+
+document.getElementById('mm-plus') .addEventListener('click', () => { mmView = Math.max(15,  mmView * 0.75); });
+document.getElementById('mm-minus').addEventListener('click', () => { mmView = Math.min(220, mmView * 1.33); });
 
 // Pre-sample track edges for minimap
 const MM_SAMPLES  = 250;
