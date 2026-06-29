@@ -47,23 +47,40 @@ const WHEEL_OFFSETS = [
   new CANNON.Vec3( WX, WY, -WZ),
 ];
 
+// Each agent gets a unique power-of-2 group bit starting at bit 4 (value 16).
+// mask=3 only covers bits 0-1 (ground=1, walls=2), so no AI group bit can
+// ever match any AI body's mask — guaranteed zero AI-vs-AI collision regardless
+// of broadphase behaviour.
+function agentGroup(id) { return 1 << (4 + id); } // 16,32,64,128,256,512,1024,2048
+
 function spawnPos(agentId) {
-  // Stagger laterally across track width
-  const lateral = (agentId - (POP_SIZE - 1) / 2) * 1.4;
-  const perpX   =  Math.cos(SPAWN_ANGLE) * lateral;
-  const perpZ   = -Math.sin(SPAWN_ANGLE) * lateral;
-  return { x: SPAWN_X + perpX, z: SPAWN_Z + perpZ };
+  // 2 rows of 4, each row 2.5 m apart laterally, rows 5 m apart longitudinally.
+  // This keeps all cars well inside the 11 m wide track and prevents overlap at spawn.
+  const col = agentId % 4;
+  const row = Math.floor(agentId / 4);
+  const lateral = (col - 1.5) * 2.5;          // −3.75, −1.25, +1.25, +3.75
+  const backward = row * 5;                    // row 0 = front, row 1 = 5 m behind
+
+  const fwdX =  Math.sin(SPAWN_ANGLE);
+  const fwdZ =  Math.cos(SPAWN_ANGLE);
+  const perpX =  Math.cos(SPAWN_ANGLE);
+  const perpZ = -Math.sin(SPAWN_ANGLE);
+
+  return {
+    x: SPAWN_X + perpX * lateral - fwdX * backward,
+    z: SPAWN_Z + perpZ * lateral - fwdZ * backward,
+  };
 }
 
-function buildPhysics(x, z) {
+function buildPhysics(x, z, group) {
   const body = new CANNON.Body({
     mass: CAR_MASS, material: matBody, linearDamping: 0.08, angularDamping: 0.92,
   });
   body.addShape(new CANNON.Box(new CANNON.Vec3(CAR_BODY_W / 2, CAR_BODY_H / 2, CAR_BODY_L / 2)));
   body.position.set(x, START_Y, z);
   body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), SPAWN_ANGLE);
-  body.collisionFilterGroup = 4;
-  body.collisionFilterMask  = 3; // ground(1) + walls(2), not other AI(4) or manual(8)
+  body.collisionFilterGroup = group;
+  body.collisionFilterMask  = 3; // ground(1) + walls(2) only
   world.addBody(body);
 
   const wheels = [], constraints = [];
@@ -79,7 +96,7 @@ function buildPhysics(x, z) {
     body.quaternion.vmult(offset, wo);
     wb.position.set(body.position.x + wo.x, body.position.y + wo.y, body.position.z + wo.z);
     wb.quaternion.copy(body.quaternion);
-    wb.collisionFilterGroup = 4;
+    wb.collisionFilterGroup = group; // same unique bit as car body
     wb.collisionFilterMask  = 3;
     world.addBody(wb);
     wheels.push(wb);
@@ -130,7 +147,7 @@ class AIAgent {
     this.nn = nn;
 
     const { x, z } = spawnPos(id);
-    const { body, wheels, constraints } = buildPhysics(x, z);
+    const { body, wheels, constraints } = buildPhysics(x, z, agentGroup(id));
     this.body        = body;
     this.wheels      = wheels;
     this.constraints = constraints;
