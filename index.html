@@ -190,18 +190,42 @@
     }
 
     /* Mini-map */
-    #minimap {
+    #minimap-wrap {
       position: fixed;
       bottom: 24px;
       left: 16px;
+    }
+    #minimap {
+      display: block;
       width: 180px;
       height: 180px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(13, 17, 23, 0.82);
       backdrop-filter: blur(6px);
-      cursor: zoom-in;
+      cursor: crosshair;
     }
+    .mm-zoom {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      display: flex;
+      gap: 3px;
+    }
+    .mm-zoom button {
+      width: 22px;
+      height: 22px;
+      background: rgba(13, 17, 23, 0.88);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 5px;
+      color: #e6edf3;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .mm-zoom button:hover { background: rgba(88,166,255,0.25); }
   </style>
 </head>
 <body>
@@ -217,7 +241,6 @@
 
 <div id="sensor-hud">
   <div class="s-title">Sensors (m)</div>
-  <!-- rows injected by JS -->
 </div>
 
 <div id="controls">
@@ -255,7 +278,13 @@
   </div>
 </div>
 
-<canvas id="minimap" width="180" height="180"></canvas>
+<div id="minimap-wrap">
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div class="mm-zoom">
+    <button id="mm-minus" title="Zoom out">−</button>
+    <button id="mm-plus"  title="Zoom in">+</button>
+  </div>
+</div>
 
 <div id="legend">
   <b>Keyboard</b><br>
@@ -289,22 +318,22 @@ const WHEEL_X_OUT     = 0.08;
 const WHEEL_Z_IN      = 0.45;
 const CAR_MASS        = 180;
 const WHEEL_MASS      = 10;
-const MAX_MOTOR_SPEED = 18;
-const MAX_MOTOR_FORCE = 350;
+const MAX_MOTOR_SPEED = 60;   // high cap so force (not speed limit) determines terminal velocity
+const MAX_MOTOR_FORCE = 280;  // per wheel — 4 wheels give 4× total force → higher top speed
 const GRIP            = 0.88;
 const SPIN_THRESHOLD  = 3;
-const START_Y         = WHEEL_RADIUS + CAR_BODY_H * 0.5 + 0.12;
+const START_Y         = WHEEL_RADIUS + CAR_BODY_H * 0.5 + 0.01;
 
 // Track geometry
-const TRACK_HALF_W  = 5.5;   // half-width of road (total road = 11 m)
-const WALL_H        = 1.2;   // wall height (m)
-const WALL_T        = 0.4;   // wall thickness (m)
-const N_ROAD        = 300;   // road ribbon segments
-const N_WALLS       = 200;   // wall segments per side
+const TRACK_HALF_W  = 5.5;
+const WALL_H        = 1.2;
+const WALL_T        = 0.4;
+const N_ROAD        = 300;
+const N_WALLS       = 200;
 
 // Sensor config
-const SENSOR_ANGLES = [-90, -60, -35, -15, 0, 15, 35, 60, 90]; // degrees from forward
-const SENSOR_LENGTH = 8.0;   // metres
+const SENSOR_ANGLES = [-90, -60, -35, -15, 0, 15, 35, 60, 90];
+const SENSOR_LENGTH = 8.0;
 
 const WX = CAR_BODY_W * 0.5 + WHEEL_X_OUT + WHEEL_WIDTH * 0.5;
 const WY = WHEEL_RADIUS - START_Y;
@@ -354,7 +383,6 @@ scene.add(sun);
 const fill = new THREE.HemisphereLight(0x4488aa, 0x223322, 0.4);
 scene.add(fill);
 
-// Ground (under the whole scene)
 const groundGeo  = new THREE.PlaneGeometry(400, 400, 1, 1);
 const groundMat  = new THREE.MeshLambertMaterial({ color: 0x2a3d2a });
 const groundMesh = new THREE.Mesh(groundGeo, groundMat);
@@ -369,39 +397,31 @@ scene.add(grid);
 
 // ─── TRACK ────────────────────────────────────────────────────────────────────
 const trackCtrl = [
-  // START — heading North up left channel
   [ 10,   0],
   [ 10,  35],
   [ 10,  72],
   [ 10, 110],
-  // Tight hairpin top-left (N → E)
   [ 10, 138],
   [ 14, 156],
   [ 28, 166],
-  [ 45, 162],  // hairpin apex
+  [ 45, 162],
   [ 58, 155],
-  // S-bend top section heading E
   [ 80, 162],
   [100, 172],
   [122, 162],
   [142, 170],
-  // Tight corner top-right (E → S)
   [160, 164],
   [172, 152],
   [175, 136],
-  [170, 120],  // corner apex
-  // Right channel heading S with chicane
+  [170, 120],
   [174,  95],
   [168,  70],
-  // Tight corner bottom-right (S → W)
   [162,  46],
   [150,  30],
-  [132,  22],  // corner apex
-  // Bottom return heading W
+  [132,  22],
   [108,  14],
   [ 82,  10],
   [ 60,  14],
-  // FINISH
   [ 42,  26],
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
 
@@ -414,7 +434,6 @@ const SPAWN_Z  = startPt.z;
 const SPAWN_ANGLE = Math.atan2(startTan.x, startTan.z);
 
 function buildTrack() {
-  // ── Road ribbon ──────────────────────────────────────────────────────────
   const pts = trackCurve.getSpacedPoints(N_ROAD);
   const roadVerts = [];
   const roadUVs   = [];
@@ -426,15 +445,12 @@ function buildTrack() {
     const tx = p1.x - p.x, tz = p1.z - p.z;
     const len = Math.sqrt(tx * tx + tz * tz) || 1;
     const nx = -tz / len, nz = tx / len;
-
     const lx = p.x + nx * TRACK_HALF_W,  lz = p.z + nz * TRACK_HALF_W;
     const rx = p.x - nx * TRACK_HALF_W,  rz = p.z - nz * TRACK_HALF_W;
-
     roadVerts.push(lx, 0.01, lz,  rx, 0.01, rz);
     const t = i / N_ROAD;
     roadUVs.push(0, t,  1, t);
   }
-
   for (let i = 0; i < N_ROAD; i++) {
     const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
     roadIdx.push(a, b, c,  b, d, c);
@@ -445,13 +461,11 @@ function buildTrack() {
   roadGeo.setAttribute('uv',       new THREE.Float32BufferAttribute(roadUVs, 2));
   roadGeo.setIndex(roadIdx);
   roadGeo.computeVertexNormals();
-
   const roadMat  = new THREE.MeshLambertMaterial({ color: 0x444444, side: THREE.DoubleSide });
   const roadMesh = new THREE.Mesh(roadGeo, roadMat);
   roadMesh.receiveShadow = true;
   scene.add(roadMesh);
 
-  // ── Edge lines (yellow) ───────────────────────────────────────────────────
   const leftPts  = [], rightPts = [], centerPts = [];
   for (let i = 0; i <= N_ROAD; i++) {
     const p  = pts[i];
@@ -463,10 +477,8 @@ function buildTrack() {
     rightPts.push(new THREE.Vector3(p.x - nx * TRACK_HALF_W, 0.04, p.z - nz * TRACK_HALF_W));
     centerPts.push(new THREE.Vector3(p.x, 0.04, p.z));
   }
-
   const edgeMat   = new THREE.LineBasicMaterial({ color: 0xffdd00 });
   const centerMat = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 1.5, gapSize: 1.5 });
-
   [leftPts, rightPts].forEach(arr => {
     const geo = new THREE.BufferGeometry().setFromPoints(arr);
     scene.add(new THREE.Line(geo, edgeMat));
@@ -476,26 +488,20 @@ function buildTrack() {
   cLine.computeLineDistances();
   scene.add(cLine);
 
-  // ── Wall physics bodies ───────────────────────────────────────────────────
   const wallPts = trackCurve.getSpacedPoints(N_WALLS);
-
   for (let side = -1; side <= 1; side += 2) {
     for (let i = 0; i < N_WALLS - 1; i++) {
       const p  = wallPts[i];
       const p1 = wallPts[i + 1];
-
       const tx = p1.x - p.x, tz = p1.z - p.z;
       const segLen = Math.sqrt(tx * tx + tz * tz);
       if (segLen < 0.001) continue;
       const tdx = tx / segLen, tdz = tz / segLen;
       const nx = -tdz, nz = tdx;
-
       const mx = (p.x + p1.x) * 0.5 + nx * side * (TRACK_HALF_W + WALL_T * 0.5);
       const mz = (p.z + p1.z) * 0.5 + nz * side * (TRACK_HALF_W + WALL_T * 0.5);
       const my = WALL_H * 0.5;
-
       const angle = Math.atan2(-tdz, tdx);
-
       const body = new CANNON.Body({ mass: 0, material: matWall });
       body.addShape(new CANNON.Box(new CANNON.Vec3(segLen * 0.5 + 0.05, WALL_H * 0.5, WALL_T * 0.5)));
       body.position.set(mx, my, mz);
@@ -504,7 +510,6 @@ function buildTrack() {
       body.collisionFilterGroup = 2;
       body.collisionFilterMask  = -1;
       world.addBody(body);
-
       const wGeo = new THREE.BoxGeometry(segLen + 0.1, WALL_H, WALL_T);
       const wMat = new THREE.MeshPhongMaterial({ color: side > 0 ? 0x3355aa : 0x993322, shininess: 60 });
       const wMesh = new THREE.Mesh(wGeo, wMat);
@@ -658,7 +663,6 @@ function buildCar() {
     const sq = new CANNON.Quaternion();
     sq.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
     wb.addShape(shape, new CANNON.Vec3(), sq);
-
     const worldOffset = new CANNON.Vec3();
     carBody.quaternion.vmult(offset, worldOffset);
     wb.position.set(
@@ -667,10 +671,8 @@ function buildCar() {
       carBody.position.z + worldOffset.z
     );
     wb.quaternion.copy(carBody.quaternion);
-
     world.addBody(wb);
     wheelBodies.push(wb);
-
     const c = new CANNON.HingeConstraint(carBody, wb, {
       pivotA: offset,
       axisA:  new CANNON.Vec3(1, 0, 0),
@@ -724,7 +726,6 @@ const _rayResult = new CANNON.RaycastResult();
 function updateSensors() {
   const pos = carBody.position;
   const SY  = pos.y;
-
   const fwdC = new CANNON.Vec3(0, 0, 1);
   const rgtC = new CANNON.Vec3(1, 0, 0);
   const fwd  = carBody.quaternion.vmult(fwdC);
@@ -733,38 +734,30 @@ function updateSensors() {
   SENSOR_ANGLES.forEach((deg, i) => {
     const rad  = deg * Math.PI / 180;
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
-
     const dx = fwd.x * cosA + rgt.x * sinA;
     const dz = fwd.z * cosA + rgt.z * sinA;
-
     _rayFrom.set(pos.x, SY, pos.z);
     _rayTo.set(pos.x + dx * SENSOR_LENGTH, SY, pos.z + dz * SENSOR_LENGTH);
-
     _rayResult.reset();
     world.raycastClosest(_rayFrom, _rayTo, { collisionFilterGroup: -1, collisionFilterMask: 2 }, _rayResult);
-
     let dist = SENSOR_LENGTH;
     let hitX = _rayTo.x, hitZ = _rayTo.z;
-
     if (_rayResult.hasHit) {
       dist = _rayResult.distance;
       hitX = _rayResult.hitPointWorld.x;
       hitZ = _rayResult.hitPointWorld.z;
     }
-
     const ratio = dist / SENSOR_LENGTH;
     const r = Math.min(1, 2 * (1 - ratio));
     const g = Math.min(1, 2 * ratio);
     const hex = `#${Math.round(r*255).toString(16).padStart(2,'0')}${Math.round(g*255).toString(16).padStart(2,'0')}00`;
-    sensorBarEls[i].style.width   = `${(ratio * 100).toFixed(0)}%`;
+    sensorBarEls[i].style.width      = `${(ratio * 100).toFixed(0)}%`;
     sensorBarEls[i].style.background = hex;
-    sensorDistEls[i].textContent  = dist.toFixed(1);
-
+    sensorDistEls[i].textContent     = dist.toFixed(1);
     const posArr = sensorLines[i].geometry.attributes.position.array;
     posArr[0] = pos.x; posArr[1] = SY; posArr[2] = pos.z;
     posArr[3] = hitX;  posArr[4] = SY; posArr[5] = hitZ;
     sensorLines[i].geometry.attributes.position.needsUpdate = true;
-
     const colArr = sensorLines[i].geometry.attributes.color.array;
     colArr[0] = r; colArr[1] = g; colArr[2] = 0;
     colArr[3] = r; colArr[4] = g; colArr[5] = 0;
@@ -833,15 +826,16 @@ const MM_W     = mmCanvas.width;
 const MM_H     = mmCanvas.height;
 const MM_CX    = MM_W / 2;
 const MM_CZ    = MM_H / 2;
-let mmView = 60;   // world metres visible from centre to canvas edge (zoom)
+let mmView = 60;
 
-// Scroll wheel on minimap to zoom
 mmCanvas.addEventListener('wheel', e => {
   e.preventDefault();
   mmView = Math.max(15, Math.min(220, mmView * (e.deltaY > 0 ? 1.18 : 0.847)));
 }, { passive: false });
 
-// Pre-sample track edges for minimap
+document.getElementById('mm-plus') .addEventListener('click', () => { mmView = Math.max(15,  mmView * 0.75); });
+document.getElementById('mm-minus').addEventListener('click', () => { mmView = Math.min(220, mmView * 1.33); });
+
 const MM_SAMPLES  = 250;
 const mmCenterPts = trackCurve.getSpacedPoints(MM_SAMPLES);
 const mmLeftPts   = [];
@@ -864,7 +858,7 @@ function worldToMM(wx, wz) {
   const dx = wx - _mmCarX, dz = wz - _mmCarZ;
   const r  =  dx * _mmRgtX + dz * _mmRgtZ;
   const f  =  dx * _mmFwdX + dz * _mmFwdZ;
-  return [MM_CX - r * scale, MM_CZ - f * scale];  // negate r to fix L/R inversion
+  return [MM_CX - r * scale, MM_CZ - f * scale];
 }
 
 function drawMinimap() {
@@ -876,13 +870,11 @@ function drawMinimap() {
   _mmRgtX = rgtC.x; _mmRgtZ = rgtC.z;
 
   mmCtx.clearRect(0, 0, MM_W, MM_H);
-
   mmCtx.save();
   mmCtx.beginPath();
   mmCtx.arc(MM_CX, MM_CZ, MM_CX - 1, 0, Math.PI * 2);
   mmCtx.clip();
 
-  // Road fill
   mmCtx.beginPath();
   mmLeftPts.forEach(([x, z], i) => {
     const [px, pz] = worldToMM(x, z);
@@ -897,7 +889,6 @@ function drawMinimap() {
   mmCtx.fillStyle = 'rgba(80,80,95,0.85)';
   mmCtx.fill();
 
-  // Edge lines
   [['#ffdd00', mmLeftPts], ['#cc3322', mmRightPts]].forEach(([color, pts]) => {
     mmCtx.beginPath();
     pts.forEach(([x, z], i) => {
@@ -909,7 +900,6 @@ function drawMinimap() {
     mmCtx.stroke();
   });
 
-  // Sensor rays
   const fwd = fwdC, rgt = rgtC;
   SENSOR_ANGLES.forEach((deg, i) => {
     const rad = deg * Math.PI / 180;
@@ -929,12 +919,11 @@ function drawMinimap() {
     mmCtx.stroke();
   });
 
-  // Car icon
   const carSize = 6;
   mmCtx.beginPath();
-  mmCtx.moveTo(MM_CX,             MM_CZ - carSize * 1.6);
-  mmCtx.lineTo(MM_CX - carSize,   MM_CZ + carSize);
-  mmCtx.lineTo(MM_CX + carSize,   MM_CZ + carSize);
+  mmCtx.moveTo(MM_CX,           MM_CZ - carSize * 1.6);
+  mmCtx.lineTo(MM_CX - carSize, MM_CZ + carSize);
+  mmCtx.lineTo(MM_CX + carSize, MM_CZ + carSize);
   mmCtx.closePath();
   mmCtx.fillStyle = '#cc2233';
   mmCtx.strokeStyle = '#ffffff';
@@ -943,8 +932,6 @@ function drawMinimap() {
   mmCtx.stroke();
 
   mmCtx.restore();
-
-  // Circle border
   mmCtx.beginPath();
   mmCtx.arc(MM_CX, MM_CZ, MM_CX - 1, 0, Math.PI * 2);
   mmCtx.strokeStyle = 'rgba(255,255,255,0.25)';
@@ -964,7 +951,6 @@ const FWD        = new THREE.Vector3(0, 0, 1);
 
 function animate(time) {
   requestAnimationFrame(animate);
-
   const dt = lastTime !== null ? Math.min((time - lastTime) / 1000, 0.05) : 1 / 60;
   lastTime = time;
 
@@ -988,7 +974,6 @@ function animate(time) {
 
   _axle.set(1, 0, 0);
   carBody.quaternion.vmult(_axle, _axle);
-
   wheelBodies.forEach(wb => {
     const vDot = wb.velocity.dot(_axle);
     _latV.set(_axle.x * vDot, _axle.y * vDot, _axle.z * vDot);
@@ -996,7 +981,6 @@ function animate(time) {
     wb.velocity.y -= _latV.y * GRIP;
     wb.velocity.z -= _latV.z * GRIP;
   });
-
   const cbDot = carBody.velocity.dot(_axle);
   carBody.velocity.x -= _axle.x * cbDot * (GRIP * 0.7);
   carBody.velocity.y -= _axle.y * cbDot * (GRIP * 0.7);
@@ -1006,7 +990,6 @@ function animate(time) {
 
   carGroup.position.copy(carBody.position);
   carGroup.quaternion.copy(carBody.quaternion);
-
   wheelBodies.forEach((wb, i) => {
     wheelMeshes[i].position.copy(wb.position);
     wheelMeshes[i].quaternion.copy(wb.quaternion);
