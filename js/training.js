@@ -32,7 +32,7 @@ const splinePts = trackCurve.getSpacedPoints(SPLINE_N);
 function findSplineIdx(x, z, fromIdx) {
   let best = fromIdx, bestDist = Infinity;
   for (let d = -5; d <= 60; d++) {
-    const idx = (fromIdx + d + SPLINE_N) % SPLINE_N;
+    const idx = Math.min(Math.max(fromIdx + d, 0), splinePts.length - 1);
     const p = splinePts[idx];
     const dx = p.x - x, dz = p.z - z;
     const dist = dx * dx + dz * dz;
@@ -245,7 +245,7 @@ class AIAgent {
     if (crashed || stuck || timeout || oob || offTrack) { this.kill(); return false; }
 
     // Reached the end of the track (last 5 spline points)
-    if (this.curSplineIdx >= SPLINE_N - 5) return true;
+    if (this.curSplineIdx >= splinePts.length - 6) return true;
 
     return false;
   }
