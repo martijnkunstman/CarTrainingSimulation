@@ -57,6 +57,33 @@ export function clearSave() {
   localStorage.removeItem(KEY);
 }
 
+const WINNER_KEY = 'carTrainingWinner';
+
+export function saveWinner(nn, generation) {
+  try {
+    localStorage.setItem(WINNER_KEY, JSON.stringify({
+      generation,
+      inputSize:  nn.inputSize,
+      hiddenSize: nn.hiddenSize,
+      outputSize: nn.outputSize,
+      genome:     Array.from(nn.genome),
+    }));
+  } catch (e) {
+    console.warn('Winner save failed:', e);
+  }
+}
+
+export function loadWinner() {
+  try {
+    const raw = localStorage.getItem(WINNER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw); // { generation, inputSize, hiddenSize, outputSize, genome[] }
+  } catch (e) {
+    console.warn('Winner load failed:', e);
+    return null;
+  }
+}
+
 // Returns a human-readable summary of the stored save (for UI display)
 export function saveSummary() {
   try {

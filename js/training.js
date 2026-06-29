@@ -5,7 +5,7 @@ import { makeSimpleWheelMesh, motorValueToColor } from './car-visual.js';
 import { world, matBody, matWheel } from './physics.js';
 import { trackCurve, SPAWN_X, SPAWN_Z, SPAWN_ANGLE } from './track.js';
 import { GeneticAlgorithm } from './evolution.js';
-import { save, load, clearSave } from './storage.js';
+import { save, load, clearSave, saveWinner } from './storage.js';
 import { applyLateralGrip, suppressPitch } from './car-physics.js';
 import { senseDistancesForBody } from './sensors.js';
 import {
@@ -242,7 +242,12 @@ class AIAgent {
     const ndx = this.body.position.x - np.x, ndz = this.body.position.z - np.z;
     const offTrack = (ndx * ndx + ndz * ndz) > (TRACK_HALF_W + 1) * (TRACK_HALF_W + 1);
 
-    if (crashed || stuck || timeout || oob || offTrack) this.kill();
+    if (crashed || stuck || timeout || oob || offTrack) { this.kill(); return false; }
+
+    // Reached the end of the track (last 5 spline points)
+    if (this.curSplineIdx >= SPLINE_N - 5) return true;
+
+    return false;
   }
 
   syncVisuals() {
@@ -337,8 +342,9 @@ export class TrainingManager {
       const a = this.agents[i];
       if (!a.alive) continue;
       suppressPitch(a.body);
-      a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i], EPISODE_MAX + this.generation);
+      const finished = a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i], EPISODE_MAX + this.generation);
       a.syncVisuals();
+      if (finished) { this._onFinish(a); return; }
     }
 
     // Color best alive red, rest gray
@@ -350,6 +356,15 @@ export class TrainingManager {
     if (this.agents.every(a => !a.alive)) {
       this._nextGen();
     }
+  }
+
+  _onFinish(agent) {
+    this.active = false;
+    saveWinner(agent.nn, this.generation);
+    this.agents.forEach(a => a.kill());
+    window.dispatchEvent(new CustomEvent('trainingFinished', {
+      detail: { generation: this.generation, fitness: agent.fitness },
+    }));
   }
 
   _nextGen() {

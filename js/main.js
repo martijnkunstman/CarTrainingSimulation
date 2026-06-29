@@ -41,6 +41,22 @@ aiToggleBtn.addEventListener('click', () => {
   }
 });
 
+// ── Finish overlay ─────────────────────────────────────────────────────────────
+const finishOverlay = document.getElementById('finish-overlay');
+window.addEventListener('trainingFinished', ({ detail }) => {
+  document.getElementById('finish-detail').textContent =
+    `Generation ${detail.generation} — fitness ${detail.fitness.toFixed(0)}`;
+  finishOverlay.style.display = 'flex';
+  aiToggleBtn.textContent = '▶ Train AI';
+  aiToggleBtn.classList.remove('active');
+  aiMode = false;
+  hideTrainingPanel();
+  document.getElementById('sensor-hud').style.display = '';
+  document.getElementById('controls').style.display   = '';
+});
+
+finishOverlay.addEventListener('click', () => { finishOverlay.style.display = 'none'; });
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const _fwd = new THREE.Vector3(0, 0, 1);
 let lastTime = null;
