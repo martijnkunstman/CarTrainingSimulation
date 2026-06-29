@@ -221,7 +221,7 @@ class AIAgent {
   }
 
   // Called after world.step()
-  evaluate(dt, dists, speed) {
+  evaluate(dt, dists, speed, episodeMax) {
     if (!this.alive) return;
     this.episodeTime += dt;
 
@@ -234,7 +234,7 @@ class AIAgent {
     const crashed = dists.some(d => d < CRASH_DIST);
     if (speed < STUCK_SPEED) { this.stuckTimer += dt; } else { this.stuckTimer = 0; }
     const stuck   = this.stuckTimer > STUCK_TIME;
-    const timeout = this.episodeTime > EPISODE_MAX;
+    const timeout = this.episodeTime > episodeMax;
     const oob     = this.body.position.y < -10;
 
     // Off-track: too far from nearest spline centre point
@@ -337,7 +337,7 @@ export class TrainingManager {
       const a = this.agents[i];
       if (!a.alive) continue;
       suppressPitch(a.body);
-      a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i]);
+      a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i], EPISODE_MAX + this.generation);
       a.syncVisuals();
     }
 
