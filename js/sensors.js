@@ -39,12 +39,36 @@ const _rayFrom   = new CANNON.Vec3();
 const _rayTo     = new CANNON.Vec3();
 const _rayResult = new CANNON.RaycastResult();
 
-export function updateSensors() {
-  const pos = carBody.position;
+// Returns raw distance array for any body — used by AI agents (no HUD update)
+export function senseDistancesForBody(body) {
+  const pos = body.position;
+  const SY  = pos.y;
+  const fwd = body.quaternion.vmult(new CANNON.Vec3(0, 0, 1));
+  const rgt = body.quaternion.vmult(new CANNON.Vec3(1, 0, 0));
+  const dists = [];
+
+  SENSOR_ANGLES.forEach(deg => {
+    const rad  = deg * Math.PI / 180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+    const dx = fwd.x * cosA + rgt.x * sinA;
+    const dz = fwd.z * cosA + rgt.z * sinA;
+    _rayFrom.set(pos.x, SY, pos.z);
+    _rayTo.set(pos.x + dx * SENSOR_LENGTH, SY, pos.z + dz * SENSOR_LENGTH);
+    _rayResult.reset();
+    world.raycastClosest(_rayFrom, _rayTo, { collisionFilterGroup: -1, collisionFilterMask: 2 }, _rayResult);
+    dists.push(_rayResult.hasHit ? _rayResult.distance : SENSOR_LENGTH);
+  });
+
+  return dists;
+}
+
+export function updateSensors(overrideBody) {
+  const pos = (overrideBody || carBody).position;
   const SY  = pos.y;
 
-  const fwd = carBody.quaternion.vmult(new CANNON.Vec3(0, 0, 1));
-  const rgt = carBody.quaternion.vmult(new CANNON.Vec3(1, 0, 0));
+  const src = overrideBody || carBody;
+  const fwd = src.quaternion.vmult(new CANNON.Vec3(0, 0, 1));
+  const rgt = src.quaternion.vmult(new CANNON.Vec3(1, 0, 0));
 
   SENSOR_ANGLES.forEach((deg, i) => {
     const rad  = deg * Math.PI / 180;
@@ -55,7 +79,6 @@ export function updateSensors() {
     _rayFrom.set(pos.x, SY, pos.z);
     _rayTo.set(pos.x + dx * SENSOR_LENGTH, SY, pos.z + dz * SENSOR_LENGTH);
     _rayResult.reset();
-    // collisionFilterMask: 2 → only test against wall bodies (group 2), skipping car/wheels
     world.raycastClosest(_rayFrom, _rayTo, { collisionFilterGroup: -1, collisionFilterMask: 2 }, _rayResult);
 
     let dist = SENSOR_LENGTH;

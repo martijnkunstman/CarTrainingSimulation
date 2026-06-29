@@ -50,12 +50,13 @@ function worldToMM(wx, wz) {
   return [MM_CX - r * scale, MM_CZ - f * scale];  // negate r: canvas x+ = screen right = car left
 }
 
-export function drawMinimap() {
-  const cpos = carBody.position;
+export function drawMinimap(overrideBody, overrideDists) {
+  const src  = overrideBody || carBody;
+  const cpos = src.position;
   _mmCarX = cpos.x; _mmCarZ = cpos.z;
 
-  const fwd = carBody.quaternion.vmult(new CANNON.Vec3(0, 0, 1));
-  const rgt = carBody.quaternion.vmult(new CANNON.Vec3(1, 0, 0));
+  const fwd = src.quaternion.vmult(new CANNON.Vec3(0, 0, 1));
+  const rgt = src.quaternion.vmult(new CANNON.Vec3(1, 0, 0));
   _mmFwdX = fwd.x; _mmFwdZ = fwd.z;
   _mmRgtX = rgt.x; _mmRgtZ = rgt.z;
 
@@ -100,7 +101,7 @@ export function drawMinimap() {
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
     const dx = fwd.x * cosA + rgt.x * sinA;
     const dz = fwd.z * cosA + rgt.z * sinA;
-    const dist = parseFloat(sensorDistEls[i].textContent) || SENSOR_LENGTH;
+    const dist = overrideDists ? overrideDists[i] : (parseFloat(sensorDistEls[i].textContent) || SENSOR_LENGTH);
     const [epx, epz] = worldToMM(cpos.x + dx * dist, cpos.z + dz * dist);
     const ratio = dist / SENSOR_LENGTH;
     const r = Math.min(1, 2 * (1 - ratio));

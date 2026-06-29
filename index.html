@@ -15,11 +15,27 @@
   <div class="label" style="margin-top:6px">Heading</div>
   <div class="value"><span id="heading">0</span>°</div>
   <button id="reset-btn">↺ Reset</button>
+  <button id="ai-toggle-btn">▶ Train AI</button>
 </div>
 
 <div id="sensor-hud">
   <div class="s-title">Sensors (m)</div>
   <!-- rows injected by sensors.js -->
+</div>
+
+<!-- Training panel: shown in AI mode, replaces sensor HUD position -->
+<div id="training-panel" style="display:none">
+  <div class="s-title">Neural Network Training</div>
+  <div class="tp-stats">
+    <div class="tp-row"><span class="tp-label">Generation</span><span class="tp-val" id="tp-gen">1</span></div>
+    <div class="tp-row"><span class="tp-label">Alive</span><span class="tp-val" id="tp-alive">8 / 8</span></div>
+    <div class="tp-row"><span class="tp-label">Best fitness</span><span class="tp-val" id="tp-best">0</span></div>
+    <div class="tp-row"><span class="tp-label">Episode time</span><span class="tp-val" id="tp-eptime">0.0s</span></div>
+  </div>
+  <div class="tp-section-label">Network (best agent)</div>
+  <canvas id="nn-canvas" width="200" height="260"></canvas>
+  <div class="tp-section-label" style="margin-top:8px">Fitness history</div>
+  <canvas id="chart-canvas" width="200" height="60"></canvas>
 </div>
 
 <div id="controls">
@@ -84,6 +100,8 @@
   }
 }
 </script>
+<div id="version">v2.1</div>
+
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

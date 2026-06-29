@@ -30,6 +30,8 @@ export function buildCar() {
   carBody.addShape(new CANNON.Box(new CANNON.Vec3(CAR_BODY_W / 2, CAR_BODY_H / 2, CAR_BODY_L / 2)));
   carBody.position.set(SPAWN_X, START_Y, SPAWN_Z);
   carBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), SPAWN_ANGLE);
+  carBody.collisionFilterGroup = 8; // AI cars filter mask=3 won't collide with group 8
+  carBody.collisionFilterMask  = -1;
   world.addBody(carBody);
 
   wheelBodies      = [];
