@@ -69,8 +69,9 @@ export function tickControls() {
 
   for (let i = 0; i < 4; i++) {
     const v = sliderValues[i];
-    wheelConstraints[i].setMotorSpeed(v * MAX_MOTOR_SPEED);
-    wheelConstraints[i].setMotorMaxForce(Math.abs(v) * MAX_MOTOR_FORCE);
+    const force = i >= 2 ? MAX_MOTOR_FORCE * 0.5 : MAX_MOTOR_FORCE;  // rear wheels half strength
+    wheelConstraints[i].setMotorSpeed(-v * MAX_MOTOR_SPEED);  // negated: +100% = forward
+    wheelConstraints[i].setMotorMaxForce(Math.abs(v) * force);
   }
 }
 
