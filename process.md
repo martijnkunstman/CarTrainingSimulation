@@ -94,6 +94,19 @@
 
 ---
 
+### Simple car visuals with motor-color wheels (v3.3)
+
+- `js/car-visual.js` rewritten: removed cabin, bumper, headlights, taillights, spoke wheels. Simple flat box + cylinder wheels only. Exports `makeSimpleWheelMesh`, `motorValueToColor`, `carGroup`, `wheelMeshes`, `syncVisuals`.
+- `motorValueToColor(val)` maps -1..+1 to blue..black..red using `THREE.Color.lerpColors`.
+- Each wheel gets its own `MeshBasicMaterial` (unaffected by lighting) so colors update independently per frame.
+- `syncVisuals` in `car-visual.js` accepts optional `motorValues` array; colors manual car wheels live.
+- `js/training.js` AIAgent: `buildMesh()` uses `makeSimpleWheelMesh`; `syncVisuals()` colors AI wheels from `lastOutputs` each frame.
+- `TrainingManager.postStep()` sets best alive agent body color to red (0xff2200), all others gray (0x666666).
+- `js/main.js` imports `sliderValues` from controls.js and passes to `syncVisuals` so manual car wheels also show motor color.
+- Manual car body always red; AI car bodies gray except best alive = red.
+
+---
+
 ### Close wall gaps at corners (v3.2)
 
 **Problem:** Wall segments are axis-aligned boxes centered between consecutive spline sample points. At corners the direction changes, so the endpoints of adjacent segments don't meet — sensors could read through the gap as if there were open space.

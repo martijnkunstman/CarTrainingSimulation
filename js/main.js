@@ -7,7 +7,7 @@ import { carBody, wheelBodies, buildCar } from './car.js';
 import { syncVisuals, carGroup } from './car-visual.js';
 import { updateSensors } from './sensors.js';
 import { drawMinimap } from './minimap.js';
-import { tickControls, updateSpinIndicators } from './controls.js';
+import { tickControls, updateSpinIndicators, sliderValues } from './controls.js';
 import { applyLateralGrip, suppressPitch } from './car-physics.js';
 import { trainingManager } from './training.js';
 import { updateTrainingUI, showTrainingPanel, hideTrainingPanel, resetEpisodeTimer } from './training-ui.js';
@@ -85,7 +85,7 @@ function animate(time) {
     world.step(1 / 60, dt, 3);
 
     suppressPitch(carBody);
-    syncVisuals(carBody, wheelBodies);
+    syncVisuals(carBody, wheelBodies, sliderValues);
     updateSensors();
     drawMinimap();
     updateSpinIndicators();

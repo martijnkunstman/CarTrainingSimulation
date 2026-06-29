@@ -1,6 +1,7 @@
 import * as CANNON from 'cannon-es';
 import * as THREE from 'three';
 import { scene } from './scene.js';
+import { makeSimpleWheelMesh, motorValueToColor } from './car-visual.js';
 import { world, matBody, matWheel } from './physics.js';
 import { trackCurve, SPAWN_X, SPAWN_Z, SPAWN_ANGLE } from './track.js';
 import { GeneticAlgorithm } from './evolution.js';
@@ -101,27 +102,19 @@ function buildPhysics(x, z, group) {
   return { body, wheels, constraints };
 }
 
-function buildMesh(color) {
-  const group = new THREE.Group();
-  const bodyMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(CAR_BODY_W, CAR_BODY_H * 2.2, CAR_BODY_L),
-    new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.85 }),
-  );
-  group.add(bodyMesh);
+function buildMesh() {
+  const group   = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
+  group.add(new THREE.Mesh(new THREE.BoxGeometry(CAR_BODY_W, CAR_BODY_H, CAR_BODY_L), bodyMat));
   scene.add(group);
 
-  const wMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-  const wheelMeshes = WHEEL_OFFSETS.map(() => {
-    const wm = new THREE.Mesh(
-      new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_WIDTH, 14),
-      wMat,
-    );
-    wm.rotation.z = Math.PI / 2;
-    scene.add(wm);
-    return wm;
+  const wheelEntries = WHEEL_OFFSETS.map(() => {
+    const { mesh, mat } = makeSimpleWheelMesh();
+    scene.add(mesh);
+    return { mesh, mat };
   });
 
-  return { group, wheelMeshes };
+  return { group, bodyMat, wheelEntries };
 }
 
 // ── AIAgent ────────────────────────────────────────────────────────────────────
@@ -137,9 +130,11 @@ class AIAgent {
     this.wheels      = wheels;
     this.constraints = constraints;
 
-    const { group, wheelMeshes } = buildMesh(AGENT_COLORS[id % AGENT_COLORS.length]);
-    this.meshGroup   = group;
-    this.wheelMeshes = wheelMeshes;
+    const { group, bodyMat, wheelEntries } = buildMesh();
+    this.meshGroup    = group;
+    this.bodyMat      = bodyMat;
+    this.wheelEntries = wheelEntries;
+    this.wheelMeshes  = wheelEntries.map(e => e.mesh); // kept for visibility toggles
 
     this._reset(nn);
   }
@@ -182,7 +177,8 @@ class AIAgent {
     });
 
     this.meshGroup.visible = true;
-    this.wheelMeshes.forEach(wm => (wm.visible = true));
+    this.wheelEntries.forEach(e => (e.mesh.visible = true));
+    this.bodyMat.color.set(0x666666);
   }
 
   kill() {
@@ -254,9 +250,11 @@ class AIAgent {
     const b = this.body;
     this.meshGroup.position.set(b.position.x, b.position.y, b.position.z);
     this.meshGroup.quaternion.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
-    this.wheels.forEach((wb, i) => {
-      this.wheelMeshes[i].position.set(wb.position.x, wb.position.y, wb.position.z);
-      this.wheelMeshes[i].quaternion.set(wb.quaternion.x, wb.quaternion.y, wb.quaternion.z, wb.quaternion.w);
+    this.wheelEntries.forEach(({ mesh, mat }, i) => {
+      const wb = this.wheels[i];
+      mesh.position.set(wb.position.x, wb.position.y, wb.position.z);
+      mesh.quaternion.set(wb.quaternion.x, wb.quaternion.y, wb.quaternion.z, wb.quaternion.w);
+      if (this.lastOutputs) mat.color.copy(motorValueToColor(this.lastOutputs[i]));
     });
   }
 }
@@ -342,6 +340,12 @@ export class TrainingManager {
       a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i]);
       a.syncVisuals();
     }
+
+    // Color best alive red, rest gray
+    const best = this.getBestAlive();
+    this.agents.forEach(a => {
+      if (a.bodyMat) a.bodyMat.color.set(a === best ? 0xff2200 : 0x666666);
+    });
 
     if (this.agents.every(a => !a.alive)) {
       this._nextGen();
