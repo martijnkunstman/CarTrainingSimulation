@@ -145,9 +145,13 @@ function _buildWalls() {
       const mz = (p.z + p1.z) * 0.5 + nz * side * (TRACK_HALF_W + WALL_T * 0.5);
       const angle = Math.atan2(-tdz, tdx);
 
+      // Extend each segment by 0.5 m per end so adjacent segments overlap at
+      // corners and sensors never see a gap between wall pieces.
+      const overlap = 0.5;
+
       // Physics body
       const body = new CANNON.Body({ mass: 0, material: matWall });
-      body.addShape(new CANNON.Box(new CANNON.Vec3(segLen * 0.5 + 0.05, WALL_H * 0.5, WALL_T * 0.5)));
+      body.addShape(new CANNON.Box(new CANNON.Vec3(segLen * 0.5 + overlap, WALL_H * 0.5, WALL_T * 0.5)));
       body.position.set(mx, WALL_H * 0.5, mz);
       body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
       body.collisionFilterGroup = 2;  // walls in their own group
@@ -156,7 +160,7 @@ function _buildWalls() {
 
       // Visual mesh
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(segLen + 0.1, WALL_H, WALL_T),
+        new THREE.BoxGeometry(segLen + overlap * 2, WALL_H, WALL_T),
         new THREE.MeshPhongMaterial({ color: side > 0 ? 0x3355aa : 0x993322, shininess: 60 })
       );
       mesh.position.set(mx, WALL_H * 0.5, mz);

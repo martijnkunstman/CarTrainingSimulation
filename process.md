@@ -93,3 +93,11 @@
 **Bug fixed (v3.1):** `TRACK_HALF_W` was used in `training.js` off-track check but missing from the `config.js` import — caused `ReferenceError` on training start.
 
 ---
+
+### Close wall gaps at corners (v3.2)
+
+**Problem:** Wall segments are axis-aligned boxes centered between consecutive spline sample points. At corners the direction changes, so the endpoints of adjacent segments don't meet — sensors could read through the gap as if there were open space.
+
+**Fix:** Each wall segment is extended by `overlap = 0.5 m` per end (1 m total extra length). Both the physics body (`CANNON.Box` half-extent `segLen * 0.5 + 0.5`) and the visual mesh (`BoxGeometry` width `segLen + 1.0`) are extended identically. Adjacent segments now overlap at all corners, so sensors never see a gap. Overlapping static bodies are harmless in cannon-es.
+
+---
