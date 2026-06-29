@@ -10,7 +10,7 @@ import { senseDistancesForBody } from './sensors.js';
 import {
   CAR_BODY_W, CAR_BODY_H, CAR_BODY_L, CAR_MASS, WHEEL_MASS,
   WHEEL_RADIUS, WHEEL_WIDTH, START_Y, MAX_MOTOR_SPEED, MAX_MOTOR_FORCE,
-  WX, WY, WZ, GRIP, SENSOR_LENGTH
+  WX, WY, WZ, GRIP, SENSOR_LENGTH, TRACK_HALF_W
 } from './config.js';
 
 const POP_SIZE     = 8;
