@@ -11,8 +11,8 @@ const chassisMesh = new THREE.Mesh(
   new THREE.BoxGeometry(CAR_BODY_W, CAR_BODY_H, CAR_BODY_L),
   new THREE.MeshPhongMaterial({ color: 0xcc2233, shininess: 120 })
 );
-chassissMesh.castShadow = true;
-chassissMesh.receiveShadow = true;
+chassisMesh.castShadow = true;
+chassisMesh.receiveShadow = true;
 carGroup.add(chassisMesh);
 
 // Cabin
