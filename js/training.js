@@ -150,6 +150,7 @@ class AIAgent {
     this.lastInputs    = null;
     this.lastHidden    = null;
     this.lastOutputs   = null;
+    this.forwardBonus  = 0;
   }
 
   respawn(nn) {
@@ -221,14 +222,23 @@ class AIAgent {
   }
 
   // Called after world.step()
-  evaluate(dt, dists, speed, episodeMax) {
+  evaluate(dt, dists, speed, episodeMax, generation) {
     if (!this.alive) return;
     this.episodeTime += dt;
 
     // Track progress
     this.curSplineIdx = findSplineIdx(this.body.position.x, this.body.position.z, this.curSplineIdx);
     if (this.curSplineIdx > this.maxSplineIdx) this.maxSplineIdx = this.curSplineIdx;
-    this.fitness = this.maxSplineIdx * 10 + speed * 0.1;
+
+    // Forward-wheel bonus: reward all wheels spinning forward in early generations
+    if (generation <= 5 && this.lastOutputs) {
+      const factor = (6 - generation) / 5; // 1.0 at gen 1 → 0.2 at gen 5
+      let bonus = 0;
+      for (let i = 0; i < 4; i++) bonus += Math.max(0, this.lastOutputs[i]);
+      this.forwardBonus += bonus * factor * dt; // accumulates per second
+    }
+
+    this.fitness = this.maxSplineIdx * 10 + speed * 0.1 + this.forwardBonus;
 
     // Kill checks
     const crashed = dists.some(d => d < CRASH_DIST);
@@ -342,7 +352,7 @@ export class TrainingManager {
       const a = this.agents[i];
       if (!a.alive) continue;
       suppressPitch(a.body);
-      const finished = a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i], EPISODE_MAX + this.generation);
+      const finished = a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i], EPISODE_MAX + this.generation, this.generation);
       a.syncVisuals();
       if (finished) { this._onFinish(a); return; }
     }
