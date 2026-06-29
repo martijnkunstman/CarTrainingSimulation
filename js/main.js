@@ -30,6 +30,7 @@ function animate(time) {
 
   tickControls();
   applyLateralGrip();
+  suppressPitch();
   world.step(1 / 60, dt, 3);
   syncVisuals(carBody, wheelBodies);
   updateSensors();
@@ -57,6 +58,19 @@ function applyLateralGrip() {
   carBody.velocity.x -= _axle.x * cbDot * (GRIP * 0.7);
   carBody.velocity.y -= _axle.y * cbDot * (GRIP * 0.7);
   carBody.velocity.z -= _axle.z * cbDot * (GRIP * 0.7);
+}
+
+// Cancel most of the car body's pitch (nose-up/down) angular velocity each frame.
+// Motor reaction torque from rear wheels tries to rotate the car around local X;
+// this directly counters that without affecting yaw (steering) or roll.
+const _pitchAxis = new CANNON.Vec3();
+function suppressPitch() {
+  _pitchAxis.set(1, 0, 0);
+  carBody.quaternion.vmult(_pitchAxis, _pitchAxis);  // local X → world space
+  const pitchRate = carBody.angularVelocity.dot(_pitchAxis);
+  carBody.angularVelocity.x -= _pitchAxis.x * pitchRate * 0.92;
+  carBody.angularVelocity.y -= _pitchAxis.y * pitchRate * 0.92;
+  carBody.angularVelocity.z -= _pitchAxis.z * pitchRate * 0.92;
 }
 
 function updateHud() {
