@@ -4,64 +4,80 @@ import { TRACK_HALF_W, WALL_H, WALL_T, N_ROAD, N_WALLS } from './config.js';
 import { scene } from './scene.js';
 import { world, matWall } from './physics.js';
 
-// Open track — start ≠ finish.  Designed as one large non-crossing loop:
+// Default track — open, non-crossing loop:
 //   • Left channel runs north  (x ≈ -10 .. 30)
 //   • Top sweeper connects     (x ≈ 30 .. 175)
 //   • Right channel runs south (x ≈ 155 .. 180)
 //   • Bottom return runs west  (x ≈ 40 .. 155, z < 38)
-// The left channel and bottom return are at least 32 m apart, so the
-// 11 m wide road never overlaps itself.
-const trackCtrl = [
-  // START — heading North up left channel
-  [ 10,   0],
-  [ 10,  35],
-  [ 10,  72],
-  [ 10, 110],
-  // Tight hairpin top-left (N → E)
-  [ 10, 138],
-  [ 14, 156],
-  [ 28, 166],
-  [ 45, 162],  // hairpin apex
-  [ 58, 155],
-  // S-bend top section heading E
-  [ 80, 162],
-  [100, 172],
-  [122, 162],
-  [142, 170],
-  // Tight corner top-right (E → S)
-  [160, 164],
-  [172, 152],
-  [175, 136],
-  [170, 120],  // corner apex
-  // Right channel heading S with chicane
-  [174,  95],
-  [168,  70],
-  // Tight corner bottom-right (S → W)
-  [162,  46],
-  [150,  30],
-  [132,  22],  // corner apex
-  // Bottom return heading W
-  [108,  14],
-  [ 82,  10],
-  [ 60,  14],
-  // FINISH
+const DEFAULT_CTRL = [
+  [ 10,   0], [ 10,  35], [ 10,  72], [ 10, 110],
+  [ 10, 138], [ 14, 156], [ 28, 166], [ 45, 162], [ 58, 155],
+  [ 80, 162], [100, 172], [122, 162], [142, 170],
+  [160, 164], [172, 152], [175, 136], [170, 120],
+  [174,  95], [168,  70],
+  [162,  46], [150,  30], [132,  22],
+  [108,  14], [ 82,  10], [ 60,  14],
   [ 42,  26],
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
 
-export const trackCurve = new THREE.CatmullRomCurve3(trackCtrl, false, 'catmullrom', 0.5);
+const DEFAULT_CURVE = new THREE.CatmullRomCurve3(DEFAULT_CTRL, false, 'catmullrom', 0.5);
 
-// Spawn a little way into the track so side sensors immediately see walls
-const startPt  = trackCurve.getPoint(0.04);
-const startTan = trackCurve.getTangent(0.04);
-export const SPAWN_X     = startPt.x;
-export const SPAWN_Z     = startPt.z;
-export const SPAWN_ANGLE = Math.atan2(startTan.x, startTan.z);
+export let trackCurve   = DEFAULT_CURVE;
+export let SPAWN_X      = 0;
+export let SPAWN_Z      = 0;
+export let SPAWN_ANGLE  = 0;
+
+function _updateSpawn() {
+  // Spawn a little way into the track so side sensors immediately see walls
+  const pt  = trackCurve.getPoint(0.04);
+  const tan = trackCurve.getTangent(0.04);
+  SPAWN_X     = pt.x;
+  SPAWN_Z     = pt.z;
+  SPAWN_ANGLE = Math.atan2(tan.x, tan.z);
+}
+_updateSpawn();
+
+// ── Lifecycle: build / clear / replace ──────────────────────────────────────────
+
+const _meshes = [];
+const _bodies = [];
+
+function _disposeObject(obj) {
+  scene.remove(obj);
+  if (obj.geometry) obj.geometry.dispose();
+  if (obj.material) {
+    (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach(m => m.dispose());
+  }
+}
+
+export function clearTrack() {
+  _meshes.forEach(_disposeObject);
+  _bodies.forEach(b => world.removeBody(b));
+  _meshes.length = 0;
+  _bodies.length = 0;
+}
 
 export function buildTrack() {
   _buildRoadRibbon();
   _buildEdgeLines();
   _buildWalls();
 }
+
+// Replace the active track with a new curve: clears old geometry/physics,
+// recomputes the spawn point, and rebuilds. Callers are responsible for
+// repositioning any cars and refreshing dependent caches (minimap, spline).
+export function setTrack(curve) {
+  trackCurve = curve;
+  _updateSpawn();
+  clearTrack();
+  buildTrack();
+}
+
+export function resetToDefaultTrack() {
+  setTrack(DEFAULT_CURVE);
+}
+
+// ── Builders ─────────────────────────────────────────────────────────────────
 
 function _buildRoadRibbon() {
   const pts      = trackCurve.getSpacedPoints(N_ROAD);
@@ -98,6 +114,7 @@ function _buildRoadRibbon() {
   const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x444444, side: THREE.DoubleSide }));
   mesh.receiveShadow = true;
   scene.add(mesh);
+  _meshes.push(mesh);
 }
 
 function _buildEdgeLines() {
@@ -119,12 +136,15 @@ function _buildEdgeLines() {
   const centerMat = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 1.5, gapSize: 1.5 });
 
   [leftPts, rightPts].forEach(arr => {
-    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arr), edgeMat));
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(arr), edgeMat);
+    scene.add(line);
+    _meshes.push(line);
   });
 
   const cLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(centerPts), centerMat);
   cLine.computeLineDistances();
   scene.add(cLine);
+  _meshes.push(cLine);
 }
 
 function _buildWalls() {
@@ -157,6 +177,7 @@ function _buildWalls() {
       body.collisionFilterGroup = 2;  // walls in their own group
       body.collisionFilterMask  = -1; // walls still collide with car/wheels
       world.addBody(body);
+      _bodies.push(body);
 
       // Visual mesh
       const mesh = new THREE.Mesh(
@@ -168,6 +189,7 @@ function _buildWalls() {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       scene.add(mesh);
+      _meshes.push(mesh);
     }
   }
 }

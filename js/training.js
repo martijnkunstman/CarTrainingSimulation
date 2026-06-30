@@ -29,7 +29,10 @@ export const AGENT_COLORS = [
 ];
 
 // Pre-sample spline for progress tracking
-const splinePts = trackCurve.getSpacedPoints(SPLINE_N);
+let splinePts = trackCurve.getSpacedPoints(SPLINE_N);
+
+// Call after the active track changes so progress tracking uses the new layout
+export function refreshTrackSpline() { splinePts = trackCurve.getSpacedPoints(SPLINE_N); }
 
 function findSplineIdx(x, z, fromIdx) {
   let best = fromIdx, bestDist = Infinity;

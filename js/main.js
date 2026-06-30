@@ -2,15 +2,16 @@ import * as THREE from 'three';
 import { GRIP } from './config.js';
 import { renderer, scene, camera, updateCamera } from './scene.js';
 import { world } from './physics.js';
-import { buildTrack } from './track.js';
+import { buildTrack, setTrack } from './track.js';
 import { carBody, wheelBodies, buildCar } from './car.js';
 import { syncVisuals, carGroup } from './car-visual.js';
 import { updateSensors } from './sensors.js';
-import { drawMinimap } from './minimap.js';
+import { drawMinimap, refreshMinimapTrack } from './minimap.js';
 import { tickControls, updateSpinIndicators, sliderValues } from './controls.js';
 import { applyLateralGrip, suppressPitch } from './car-physics.js';
-import { trainingManager } from './training.js';
+import { trainingManager, refreshTrackSpline } from './training.js';
 import { updateTrainingUI, showTrainingPanel, hideTrainingPanel, resetEpisodeTimer } from './training-ui.js';
+import { TrackSelectUI } from './track-select.js';
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 buildTrack();
@@ -63,6 +64,31 @@ window.addEventListener('trainingFinished', ({ detail }) => {
 });
 
 finishOverlay.addEventListener('click', () => { finishOverlay.style.display = 'none'; });
+
+// ── Track selection ────────────────────────────────────────────────────────────
+function _stopAiMode() {
+  aiToggleBtn.textContent = '▶ Train AI';
+  aiToggleBtn.classList.remove('active');
+  aiMode = false;
+  hideTrainingPanel();
+  document.getElementById('sensor-hud').style.display = '';
+  document.getElementById('controls').style.display   = '';
+  trainingManager.stop();
+}
+
+const trackSelectUI = new TrackSelectUI({
+  onApply: (newCurve) => {
+    if (aiMode) _stopAiMode();
+    setTrack(newCurve);
+    refreshMinimapTrack();
+    refreshTrackSpline();
+    trainingManager.resetTraining();
+    buildCar();
+  },
+  onCancel: () => {},
+});
+
+document.getElementById('track-select-btn').addEventListener('click', () => trackSelectUI.show());
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const _fwd = new THREE.Vector3(0, 0, 1);

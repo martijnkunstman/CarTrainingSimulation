@@ -15,6 +15,7 @@ Live demo: https://martijnkunstman.github.io/CarTrainingSimulation/
 - **Spin indicator** — red dot per wheel when angular velocity diverges from road speed
 - **Non-crossing track** — CatmullRom spline with hairpins, S-bends and a chicane
 - **Neural network training** — 8 AI cars evolve simultaneously using a genetic algorithm; live NN visualiser and fitness chart
+- **Track generator** — generate, preview and switch to a new randomized track at any time via the 🗺 Track button; swapping tracks resets training (genomes are track-specific) and re-seats the manual car at the new spawn point
 
 ---
 
@@ -28,7 +29,9 @@ js/
   config.js             – all constants (car dimensions, physics tuning, track/sensor config)
   scene.js              – Three.js renderer, scene, camera, lights, ground mesh
   physics.js            – cannon-es world, materials, contact materials, ground body
-  track.js              – track spline, spawn point, road ribbon, edge lines, wall bodies
+  track.js              – active track spline, spawn point, road ribbon, edge lines, wall bodies, setTrack()/clearTrack()
+  track-generator.js    – seeded random track generation (generateRandomTrack)
+  track-select.js       – TrackSelectUI: preview canvas + generate/use/cancel modal
   car.js                – manual car body, wheel bodies, hinge constraints, buildCar()
   car-visual.js         – Three.js car and wheel meshes, syncVisuals()
   car-physics.js        – applyLateralGrip() and suppressPitch() (shared by manual + AI cars)
@@ -112,6 +115,20 @@ Click **▶ Train AI** in the HUD to switch to training mode. 8 coloured AI cars
 When a car reaches the end of the track a **"🏁 End of Track Reached!"** overlay appears showing the generation and fitness. The winning brain is saved to `localStorage` under the key `carTrainingWinner` (separate from the regular training save). Click the overlay to dismiss.
 
 Click **⬛ Stop AI** to return to manual mode; the car respawns at the track start.
+
+### Champion brain
+
+The **🏆 Load Champion** button seeds the population with a previously-saved, finish-reaching genome (`js/winner-brain.js`), adds light mutation to the non-elite copies for diversity, and switches into AI mode if not already active.
+
+### Track generator
+
+Click **🗺 Track** to open the track generator/selector overlay:
+
+- **🎲 Generate New** — produces a fresh random track (seeded mulberry32 PRNG, 9–13 control points along a partial-ellipse arc with jitter, built into a CatmullRom spline) and previews it on a 2D canvas (road, edges, centerline, START/FINISH markers, current seed).
+- **✓ Use This Track** — replaces the active track: rebuilds the 3D road/walls, refreshes the minimap and the AI's progress-tracking spline, resets training (genomes are tied to the previous layout), and re-seats the manual car at the new spawn point. If AI training was running, it is stopped first.
+- **✕ Cancel** — closes the overlay without changing anything.
+
+This currently runs as a modal over the main simulation rather than a separate page. Planned for later: a library of predefined tracks, saving/loading specific tracks (by seed) to `localStorage`, and a race mode where multiple pre-trained brains compete on the same track.
 
 ---
 

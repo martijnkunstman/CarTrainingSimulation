@@ -127,6 +127,26 @@
 
 ---
 
+### Track generator & selection UI (v3.7)
+
+**Goal:** Let the user generate a new random track, preview it, and choose it as the active track for both manual driving and AI training, without needing an editor.
+
+**New files:**
+- `js/track-generator.js` — `generateRandomTrack(seed?)`: seeded mulberry32 PRNG places 9–13 control points along a 260°–320° arc of a randomized ellipse (random center/radii) with positional jitter, then builds a non-closed `CatmullRomCurve3`. Returns `{ seed, curve }` so a specific seed could be reproduced/saved later.
+- `js/track-select.js` — `TrackSelectUI` class: owns the `#track-select-overlay` modal, draws a 2D top-down preview (road fill, edge lines, dashed centerline, START/FINISH markers) onto `#track-preview-canvas`, and exposes `show()`/`generate(seed)`. "Use This Track" calls the `onApply(curve)` callback supplied by the caller; "Cancel" calls `onCancel()`.
+
+**Track hot-swap support:**
+- `js/track.js` rewritten to track every created mesh/line (`_meshes`) and physics body (`_bodies`) at build time. New `clearTrack()` disposes/removes them all. New `setTrack(curve)` swaps `trackCurve`, recomputes spawn point, clears, and rebuilds. `resetToDefaultTrack()` restores the original hand-authored track.
+- `js/minimap.js`: pre-sampled edge/center points moved into `_sampleTrack()`; new `refreshMinimapTrack()` re-samples after a track swap (live `export let trackCurve` bindings don't auto-refresh pre-computed derived arrays).
+- `js/training.js`: same pattern — `splinePts` re-sample wrapped in `refreshTrackSpline()`.
+
+**Wiring (`js/main.js`):**
+- New `🗺 Track` button opens the selector. On "Use This Track": stops AI mode if active, calls `setTrack()`, `refreshMinimapTrack()`, `refreshTrackSpline()`, then `trainingManager.resetTraining()` (previously-trained genomes are track-specific and meaningless on a new layout) and `buildCar()` to reposition the manual car at the new spawn.
+
+**Not implemented yet (explicitly deferred by user):** track editing, a library of 10 predefined tracks, save/load tracks to localStorage, and a separate "race mode" view where pre-trained cars compete against each other.
+
+---
+
 ### Close wall gaps at corners (v3.2)
 
 **Problem:** Wall segments are axis-aligned boxes centered between consecutive spline sample points. At corners the direction changes, so the endpoints of adjacent segments don't meet — sensors could read through the gap as if there were open space.

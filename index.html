@@ -17,6 +17,7 @@
   <button id="reset-btn">↺ Reset</button>
   <button id="ai-toggle-btn">▶ Train AI</button>
   <button id="load-champion-btn" title="Seed population with pre-trained champion brain">🏆 Load Champion</button>
+  <button id="track-select-btn" title="Generate or choose a new track">🗺 Track</button>
 </div>
 
 <div id="sensor-hud">
@@ -84,6 +85,19 @@
   </div>
 </div>
 
+<div id="track-select-overlay" style="display:none">
+  <div id="track-select-box">
+    <div id="track-select-title">🗺 Track Generator</div>
+    <canvas id="track-preview-canvas" width="480" height="340"></canvas>
+    <div id="track-seed-info">Seed: —</div>
+    <div id="track-select-btns">
+      <button id="track-cancel-btn">✕ Cancel</button>
+      <button id="track-generate-btn">🎲 Generate New</button>
+      <button id="track-use-btn">✓ Use This Track</button>
+    </div>
+  </div>
+</div>
+
 <div id="minimap-wrap">
   <canvas id="minimap" width="180" height="180"></canvas>
   <div class="mm-zoom">
@@ -111,7 +125,7 @@
   }
 }
 </script>
-<div id="version">v3.6</div>
+<div id="version">v3.7</div>
 
 <script type="module" src="js/main.js"></script>
 </body>

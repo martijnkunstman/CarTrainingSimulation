@@ -23,20 +23,29 @@ document.getElementById('mm-plus') .addEventListener('click', () => { mmView = M
 document.getElementById('mm-minus').addEventListener('click', () => { mmView = Math.min(220, mmView * 1.33); });
 
 // Pre-sample track edges
-const MM_SAMPLES  = 250;
-const mmCenterPts = trackCurve.getSpacedPoints(MM_SAMPLES);
-const mmLeftPts   = [];
-const mmRightPts  = [];
+const MM_SAMPLES = 250;
+let mmCenterPts = [];
+let mmLeftPts   = [];
+let mmRightPts  = [];
 
-for (let i = 0; i < MM_SAMPLES; i++) {
-  const p  = mmCenterPts[i];
-  const p1 = mmCenterPts[Math.min(i + 1, MM_SAMPLES)];
-  const tx = p1.x - p.x, tz = p1.z - p.z;
-  const len = Math.sqrt(tx * tx + tz * tz) || 1;
-  const nx = -tz / len, nz = tx / len;
-  mmLeftPts.push([p.x + nx * TRACK_HALF_W, p.z + nz * TRACK_HALF_W]);
-  mmRightPts.push([p.x - nx * TRACK_HALF_W, p.z - nz * TRACK_HALF_W]);
+function _sampleTrack() {
+  mmCenterPts = trackCurve.getSpacedPoints(MM_SAMPLES);
+  mmLeftPts   = [];
+  mmRightPts  = [];
+  for (let i = 0; i < MM_SAMPLES; i++) {
+    const p  = mmCenterPts[i];
+    const p1 = mmCenterPts[Math.min(i + 1, MM_SAMPLES)];
+    const tx = p1.x - p.x, tz = p1.z - p.z;
+    const len = Math.sqrt(tx * tx + tz * tz) || 1;
+    const nx = -tz / len, nz = tx / len;
+    mmLeftPts.push([p.x + nx * TRACK_HALF_W, p.z + nz * TRACK_HALF_W]);
+    mmRightPts.push([p.x - nx * TRACK_HALF_W, p.z - nz * TRACK_HALF_W]);
+  }
 }
+_sampleTrack();
+
+// Call after the active track changes so the minimap reflects the new layout
+export function refreshMinimapTrack() { _sampleTrack(); }
 
 let _mmFwdX = 0, _mmFwdZ = 1, _mmRgtX = 1, _mmRgtZ = 0;
 let _mmCarX = 0, _mmCarZ = 0;
