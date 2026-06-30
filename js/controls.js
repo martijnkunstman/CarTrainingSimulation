@@ -69,7 +69,7 @@ export function tickControls() {
 
   for (let i = 0; i < 4; i++) {
     const v = sliderValues[i];
-    wheelConstraints[i].setMotorSpeed(v * MAX_MOTOR_SPEED);
+    wheelConstraints[i].setMotorSpeed(-v * MAX_MOTOR_SPEED);
     wheelConstraints[i].setMotorMaxForce(Math.abs(v) * MAX_MOTOR_FORCE);
   }
 }
