@@ -4,7 +4,9 @@ import { scene } from './scene.js';
 import { makeSimpleWheelMesh, motorValueToColor } from './car-visual.js';
 import { world, matBody, matWheel } from './physics.js';
 import { trackCurve, SPAWN_X, SPAWN_Z, SPAWN_ANGLE } from './track.js';
+import { NeuralNetwork } from './nn.js';
 import { GeneticAlgorithm } from './evolution.js';
+import { CHAMPION_GENOME } from './winner-brain.js';
 import { save, load, clearSave, saveWinner } from './storage.js';
 import { applyLateralGrip, suppressPitch } from './car-physics.js';
 import { senseDistancesForBody } from './sensors.js';
@@ -388,6 +390,21 @@ export class TrainingManager {
 
     // Persist after every generation so progress is never lost
     save(this.ga, this.bestEver);
+  }
+
+  // Seed population with the bundled champion genome (1 exact copy + 7 mutated clones)
+  loadChampion() {
+    clearSave();
+    this.ga           = new GeneticAlgorithm({ popSize: POP_SIZE, eliteCount: 2, mutationRate: 0.12, mutationStrength: 0.35 });
+    this.generation   = 1;
+    this.bestEver     = 0;
+    this.ga.networks.forEach((nn, i) => {
+      nn.genome.set(CHAMPION_GENOME);
+      if (i > 0) NeuralNetwork.mutate(nn.genome, 0.1, 0.2); // gentle mutation for diversity
+    });
+    if (this.active && this._built) {
+      this.agents.forEach((a, i) => a.respawn(this.ga.networks[i]));
+    }
   }
 
   // Wipe localStorage and restart from generation 1 with fresh random networks

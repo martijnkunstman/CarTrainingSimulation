@@ -41,6 +41,13 @@ aiToggleBtn.addEventListener('click', () => {
   }
 });
 
+// ── Champion loader ────────────────────────────────────────────────────────────
+document.getElementById('load-champion-btn').addEventListener('click', () => {
+  trainingManager.loadChampion();
+  // If not already in AI mode, switch into it
+  if (!aiMode) aiToggleBtn.click();
+});
+
 // ── Finish overlay ─────────────────────────────────────────────────────────────
 const finishOverlay = document.getElementById('finish-overlay');
 window.addEventListener('trainingFinished', ({ detail }) => {

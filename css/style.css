@@ -59,6 +59,19 @@ body {
   border-color: rgba(248, 81, 73, 0.5);
   color: #f85149;
 }
+#load-champion-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 6px 0;
+  background: rgba(210, 153, 34, 0.15);
+  border: 1px solid rgba(210, 153, 34, 0.4);
+  border-radius: 6px;
+  color: #e3b341;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#load-champion-btn:hover { background: rgba(210, 153, 34, 0.3); }
 
 /* Training panel */
 #training-panel {
