@@ -72,13 +72,15 @@ Click **▶ Train AI** in the HUD to switch to training mode. 8 coloured AI cars
 
 | Layer | Size | Activation |
 |-------|------|-----------|
-| Input | 10 | — |
-| Hidden | 16 | tanh |
+| Input | 8 | — |
+| Hidden | 10 | tanh |
 | Output | 4 | tanh |
 
-**Inputs:** 9 sensor distances (each normalised 0–1) + forward speed (normalised 0–1)  
+**Inputs:** 7 sensor distances (each normalised 0–1) + forward speed (normalised 0–1)  
 **Outputs:** FL, FR, RL, RR motor values (−1 = full reverse, +1 = full forward)  
-**Genome:** 244 parameters as a `Float32Array`
+**Genome:** 134 parameters as a `Float32Array`
+
+Architecture is centralized in `config.js` (`NN_INPUT_SIZE`/`NN_HIDDEN_SIZE`/`NN_OUTPUT_SIZE`/`SENSOR_ANGLES`) so sensor count and hidden layer size can be tuned in one place. Saved brains (`localStorage` training save and the bundled champion genome) are shape-checked on load — a save from a different architecture is discarded rather than crashing.
 
 ### Evolution
 

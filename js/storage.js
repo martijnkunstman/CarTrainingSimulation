@@ -1,4 +1,5 @@
 import { NeuralNetwork } from './nn.js';
+import { NN_INPUT_SIZE, NN_HIDDEN_SIZE, NN_OUTPUT_SIZE } from './config.js';
 
 const KEY = 'carTrainingSave';
 
@@ -30,6 +31,17 @@ export function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
+
+    // Discard saves from a previous, incompatible network architecture
+    // (e.g. after changing sensor count or hidden layer size) instead of
+    // feeding mismatched-length genomes into the current NeuralNetwork shape.
+    const shapeMatches = data.networks.every(n =>
+      n.inputSize === NN_INPUT_SIZE && n.hiddenSize === NN_HIDDEN_SIZE && n.outputSize === NN_OUTPUT_SIZE
+    );
+    if (!shapeMatches) {
+      console.warn('Training save uses a different network architecture — starting fresh.');
+      return null;
+    }
 
     const networks = data.networks.map(n => {
       const nn = new NeuralNetwork(n.inputSize, n.hiddenSize, n.outputSize);

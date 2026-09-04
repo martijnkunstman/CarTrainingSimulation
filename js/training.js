@@ -207,9 +207,10 @@ class AIAgent {
     const vel   = this.body.velocity;
     const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
 
-    const inputs = new Float32Array(10);
-    for (let i = 0; i < 9; i++) inputs[i] = Math.min(1, dists[i] / SENSOR_LENGTH);
-    inputs[9] = Math.min(1, speed / 10);
+    const nSensors = dists.length;
+    const inputs = new Float32Array(nSensors + 1);
+    for (let i = 0; i < nSensors; i++) inputs[i] = Math.min(1, dists[i] / SENSOR_LENGTH);
+    inputs[nSensors] = Math.min(1, speed / 10);
 
     const { hidden, outputs } = this.nn.forwardDetailed(inputs);
     this.lastInputs  = inputs;
@@ -395,8 +396,15 @@ export class TrainingManager {
     save(this.ga, this.bestEver);
   }
 
-  // Seed population with the bundled champion genome (1 exact copy + 7 mutated clones)
+  // Seed population with the bundled champion genome (1 exact copy + 7 mutated clones).
+  // Returns false without changing anything if the champion genome doesn't match
+  // the current network architecture (e.g. after changing sensor count or hidden size).
   loadChampion() {
+    const expectedLen = this.ga.networks[0].genome.length;
+    if (CHAMPION_GENOME.length !== expectedLen) {
+      console.warn(`Champion genome (${CHAMPION_GENOME.length} params) doesn't match the current network architecture (${expectedLen} params) — skipping.`);
+      return false;
+    }
     clearSave();
     this.ga           = new GeneticAlgorithm({ popSize: POP_SIZE, eliteCount: 2, mutationRate: 0.12, mutationStrength: 0.35 });
     this.generation   = 1;
@@ -408,6 +416,7 @@ export class TrainingManager {
     if (this.active && this._built) {
       this.agents.forEach((a, i) => a.respawn(this.ga.networks[i]));
     }
+    return true;
   }
 
   // Wipe localStorage and restart from generation 1 with fresh random networks

@@ -60,6 +60,24 @@
 
 ## 2026-06-29 (continued)
 
+### Smaller neural network: 7 sensors, 10 hidden neurons (v3.9)
+
+**Goal:** shrink the NN input/hidden dimensions to reduce genome size and speed up genetic evolution, based on a design review — the original 9-sensor fan had redundant near-duplicate rays (`-90/-60` and `-35/-15` gave dense forward resolution that likely wasn't needed to steer well), and 16 hidden neurons was untested against smaller alternatives.
+
+**Architecture change:** 10 inputs → 16 hidden → 4 outputs (244-param genome) becomes **8 inputs → 10 hidden → 4 outputs (134-param genome)**.
+
+- `js/config.js` — `SENSOR_ANGLES` reduced from 9 rays (`-90,-60,-35,-15,0,15,35,60,90`) to 7 (`-70,-35,-15,0,15,35,70`), keeping forward resolution and side-wall coverage while dropping the two purely-lateral ±90° rays and one redundant near-forward ray per side. New `NN_INPUT_SIZE = SENSOR_ANGLES.length + 1`, `NN_HIDDEN_SIZE = 10`, `NN_OUTPUT_SIZE = 4` centralize the architecture as config instead of being hardcoded defaults inside `nn.js`.
+- `js/nn.js` — constructor defaults now read from `config.js` instead of hardcoded `10/16/4`.
+- `js/training.js` — `AIAgent.sense()` sizes its input array from `dists.length` (the live sensor count) instead of a hardcoded `9`/`10`, so it stays correct if sensor count changes again.
+- `sensors.js` and `minimap.js` were already fully generic over `SENSOR_ANGLES.length` and needed no changes.
+
+**Backward-compatibility guards** (old saved brains are a different shape and would otherwise crash or silently misbehave against the new architecture):
+- `js/storage.js` `load()` now checks every saved network's `inputSize`/`hiddenSize`/`outputSize` against the current `NN_INPUT_SIZE`/`NN_HIDDEN_SIZE`/`NN_OUTPUT_SIZE` and discards the save (starts fresh, with a console warning) if they don't match.
+- `js/training.js` `loadChampion()` now checks the bundled `CHAMPION_GENOME`'s length against the current network's genome length before applying it; on mismatch it warns and returns `false` instead of throwing (`Float32Array.set()` on a too-long source throws a `RangeError`). `js/main.js`'s champion-button handler shows an alert if this happens. The bundled champion genome (247 values, from the old 10/16/4 architecture) is now incompatible and will no longer load until a new champion is trained and saved under the new architecture.
+- `explain.md` updated to describe the 8/10/4 architecture and 134-value genome layout.
+
+---
+
 ### Physics tuning: friction-circle grip, progressive slip, softer pitch damping (v3.8)
 
 **Goal:** address weaknesses in the arcade-style tire model identified during a physics review — lateral grip was a flat, framerate-dependent velocity snap, decoupled from how hard the wheel was being driven, and pitch suppression removed 97% of pitch rate every frame regardless of dt.

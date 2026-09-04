@@ -25,8 +25,13 @@ export const N_ROAD       = 300;   // road ribbon segments
 export const N_WALLS      = 200;   // wall segments per side
 
 // Sensor config
-export const SENSOR_ANGLES = [-90, -60, -35, -15, 0, 15, 35, 60, 90]; // degrees from forward
+export const SENSOR_ANGLES = [-70, -35, -15, 0, 15, 35, 70]; // degrees from forward (7 rays)
 export const SENSOR_LENGTH = 8.0;   // metres
+
+// Neural network architecture — inputs = one per sensor + normalized speed
+export const NN_INPUT_SIZE  = SENSOR_ANGLES.length + 1;
+export const NN_HIDDEN_SIZE = 10;
+export const NN_OUTPUT_SIZE = 4;
 
 // Derived wheel position offsets (plain numbers, used to build CANNON.Vec3 in car.js)
 export const WX = CAR_BODY_W * 0.5 + WHEEL_X_OUT + WHEEL_WIDTH * 0.5;

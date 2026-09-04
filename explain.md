@@ -13,23 +13,23 @@ This approach is called a **genetic algorithm** (or neuroevolution). It requires
 ### Structure
 
 ```
-Inputs (10)  →  Hidden layer (16 neurons)  →  Outputs (4)
+Inputs (8)  →  Hidden layer (10 neurons)  →  Outputs (4)
 ```
 
 | Layer   | Size | Activation |
 |---------|------|------------|
-| Input   | 10   | none (raw values) |
-| Hidden  | 16   | tanh       |
+| Input   | 8    | none (raw values) |
+| Hidden  | 10   | tanh       |
 | Output  | 4    | tanh       |
 
 ### Inputs
 
-Every physics step the car reads 9 distance sensors and its own speed:
+Every physics step the car reads 7 distance sensors and its own speed:
 
 | Index | Meaning |
 |-------|---------|
-| 0–8   | Distance to nearest wall in 9 directions (−90° to +90° in 22.5° steps), each normalized to 0–1 (0 = wall right here, 1 = nothing within sensor range) |
-| 9     | Forward speed, normalized 0–1 (capped at 10 m/s = 1.0) |
+| 0–6   | Distance to nearest wall in 7 directions (−70° to +70°, denser near forward), each normalized to 0–1 (0 = wall right here, 1 = nothing within sensor range) |
+| 7     | Forward speed, normalized 0–1 (capped at 10 m/s = 1.0) |
 
 ### Outputs
 
@@ -51,22 +51,22 @@ The rear motors are physically limited to half the maximum force of the front mo
 
 ### The Genome
 
-All weights and biases of the network are flattened into a single array of 244 numbers called the **genome**:
+All weights and biases of the network are flattened into a single array of 134 numbers called the **genome**:
 
 ```
-[ input→hidden weights (10×16 = 160)
-  hidden biases (16)
-  hidden→output weights (16×4 = 64)
+[ input→hidden weights (8×10 = 80)
+  hidden biases (10)
+  hidden→output weights (10×4 = 40)
   output biases (4) ]
-Total: 244 numbers
+Total: 134 numbers
 ```
 
 This flat array is what the genetic algorithm operates on — it treats the entire brain as a single string of numbers to be evolved.
 
 ### Forward Pass (how the network thinks)
 
-1. **Hidden layer**: for each of the 16 hidden neurons, multiply every input by its weight, add a bias, then apply `tanh` to squash the result into −1..+1.
-2. **Output layer**: same process — multiply the 16 hidden values by their weights, add a bias, apply `tanh`.
+1. **Hidden layer**: for each of the 10 hidden neurons, multiply every input by its weight, add a bias, then apply `tanh` to squash the result into −1..+1.
+2. **Output layer**: same process — multiply the 10 hidden values by their weights, add a bias, apply `tanh`.
 3. The 4 output values are sent directly to the wheel motors.
 
 This happens once per physics step (~60 times per second).

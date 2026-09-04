@@ -1,8 +1,9 @@
-// NeuralNetwork: 10 inputs → 16 hidden (tanh) → 4 outputs (tanh)
+// NeuralNetwork: NN_INPUT_SIZE inputs → NN_HIDDEN_SIZE hidden (tanh) → NN_OUTPUT_SIZE outputs (tanh)
 // Genome layout: [w_ih (I×H), b_h (H), w_ho (H×O), b_o (O)]
+import { NN_INPUT_SIZE, NN_HIDDEN_SIZE, NN_OUTPUT_SIZE } from './config.js';
 
 export class NeuralNetwork {
-  constructor(inputSize = 10, hiddenSize = 16, outputSize = 4) {
+  constructor(inputSize = NN_INPUT_SIZE, hiddenSize = NN_HIDDEN_SIZE, outputSize = NN_OUTPUT_SIZE) {
     this.inputSize  = inputSize;
     this.hiddenSize = hiddenSize;
     this.outputSize = outputSize;

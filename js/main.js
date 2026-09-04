@@ -44,7 +44,11 @@ aiToggleBtn.addEventListener('click', () => {
 
 // ── Champion loader ────────────────────────────────────────────────────────────
 document.getElementById('load-champion-btn').addEventListener('click', () => {
-  trainingManager.loadChampion();
+  const loaded = trainingManager.loadChampion();
+  if (!loaded) {
+    alert('The saved champion brain was trained on a different network architecture (sensor count / hidden layer size has changed) and can no longer be loaded.');
+    return;
+  }
   // If not already in AI mode, switch into it
   if (!aiMode) aiToggleBtn.click();
 });
