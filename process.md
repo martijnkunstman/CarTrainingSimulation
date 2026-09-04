@@ -60,6 +60,24 @@
 
 ## 2026-06-29 (continued)
 
+### Episode countdown timer + winner speed/distance on the fitness chart (v4.0)
+
+**Goal:** show how much time is left before the current generation's episode times out, and plot the winning car's average speed and distance travelled alongside fitness history.
+
+**Countdown timer:**
+- `TrainingManager` gains an `episodeMax` getter (`EPISODE_MAX + this.generation`, matching the value already passed into `AIAgent.evaluate()`'s timeout check).
+- `training-ui.js` adds a "Time left" stat row (`#tp-timeleft`), computed each frame as `max(0, episodeMax - elapsed)` using the same wall-clock elapsed timer already driving "Episode time".
+
+**Winner speed & distance tracking:**
+- `AIAgent` accumulates `speedSum += speed * dt` in `evaluate()` and exposes `avgSpeed` (`speedSum / episodeTime`) and `distance` (`trackLength * maxSplineIdx / SPLINE_N`, using the track's real arc length via `trackCurve.getLength()`, cached alongside `splinePts` and refreshed in `refreshTrackSpline()`).
+- `TrainingManager._nextGen()` collects `{ avgSpeed, distance }` for every agent and passes it into `GeneticAlgorithm.nextGeneration(fitnesses, agentStats)`.
+- `evolution.js`: `nextGeneration()` now records the fitness-winning agent's `avgSpeed`/`distance` into `fitnessHistory` as `winnerAvgSpeed`/`winnerDistance`, alongside the existing `best`/`avg` fitness values (this list is what's persisted to `localStorage` and re-used across reloads, so no separate storage changes were needed).
+- `training-ui.js`'s `drawChart()` now draws two additional lines (winner avg speed in orange, winner distance in purple), each normalized to its own max since fitness/speed/distance are on very different scales — plus a small color-coded legend above the chart (`#chart-legend` in `index.html`/`style.css`).
+
+**Bug fix in passing:** `training-ui.js`'s `INPUT_LABELS` array (used by the NN visualizer) still had the old 10-label, 9-sensor set from before the v3.9 sensor-count reduction — corrected to the current 7-angle + speed set.
+
+---
+
 ### Smaller neural network: 7 sensors, 10 hidden neurons (v3.9)
 
 **Goal:** shrink the NN input/hidden dimensions to reduce genome size and speed up genetic evolution, based on a design review — the original 9-sensor fan had redundant near-duplicate rays (`-90/-60` and `-35/-15` gave dense forward resolution that likely wasn't needed to steer well), and 16 hidden neurons was untested against smaller alternatives.

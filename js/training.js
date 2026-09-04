@@ -29,10 +29,14 @@ export const AGENT_COLORS = [
 ];
 
 // Pre-sample spline for progress tracking
-let splinePts = trackCurve.getSpacedPoints(SPLINE_N);
+let splinePts   = trackCurve.getSpacedPoints(SPLINE_N);
+let trackLength = trackCurve.getLength();
 
 // Call after the active track changes so progress tracking uses the new layout
-export function refreshTrackSpline() { splinePts = trackCurve.getSpacedPoints(SPLINE_N); }
+export function refreshTrackSpline() {
+  splinePts   = trackCurve.getSpacedPoints(SPLINE_N);
+  trackLength = trackCurve.getLength();
+}
 
 function findSplineIdx(x, z, fromIdx) {
   let best = fromIdx, bestDist = Infinity;
@@ -156,6 +160,7 @@ class AIAgent {
     this.lastHidden    = null;
     this.lastOutputs   = null;
     this.forwardBonus  = 0;
+    this.speedSum      = 0;
   }
 
   respawn(nn) {
@@ -231,6 +236,7 @@ class AIAgent {
   evaluate(dt, dists, speed, episodeMax, generation) {
     if (!this.alive) return;
     this.episodeTime += dt;
+    this.speedSum    += speed * dt;
 
     // Track progress
     this.curSplineIdx = findSplineIdx(this.body.position.x, this.body.position.z, this.curSplineIdx);
@@ -265,6 +271,9 @@ class AIAgent {
 
     return false;
   }
+
+  get avgSpeed() { return this.episodeTime > 0 ? this.speedSum / this.episodeTime : 0; }
+  get distance() { return trackLength * (this.maxSplineIdx / SPLINE_N); }
 
   syncVisuals() {
     if (!this.alive) return;
@@ -329,6 +338,9 @@ export class TrainingManager {
 
   get aliveCount() { return this.agents.filter(a => a.alive).length; }
 
+  // Episode timeout for the current generation (grows by 1s/generation, see AIAgent.evaluate)
+  get episodeMax() { return EPISODE_MAX + this.generation; }
+
   getBestAlive() {
     let best = null, bestF = -Infinity;
     for (const a of this.agents) {
@@ -384,11 +396,12 @@ export class TrainingManager {
   }
 
   _nextGen() {
-    const fitnesses = this.agents.map(a => a.fitness);
+    const fitnesses  = this.agents.map(a => a.fitness);
+    const agentStats = this.agents.map(a => ({ avgSpeed: a.avgSpeed, distance: a.distance }));
     const best = Math.max(...fitnesses);
     if (best > this.bestEver) this.bestEver = best;
 
-    const newNets = this.ga.nextGeneration(fitnesses);
+    const newNets = this.ga.nextGeneration(fitnesses, agentStats);
     this.generation = this.ga.generation + 1;
     this.agents.forEach((a, i) => a.respawn(newNets[i]));
 

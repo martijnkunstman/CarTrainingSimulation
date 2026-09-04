@@ -7,16 +7,24 @@ export class GeneticAlgorithm {
     this.mutationRate     = mutationRate;
     this.mutationStrength = mutationStrength;
     this.generation       = 0;
-    this.fitnessHistory   = []; // { best, avg } per generation
+    this.fitnessHistory   = []; // { best, avg, winnerAvgSpeed, winnerDistance } per generation
 
     this.networks = Array.from({ length: popSize }, () => new NeuralNetwork());
   }
 
-  // Advance one generation given parallel fitness scores; returns new networks array
-  nextGeneration(fitnesses) {
-    const best = Math.max(...fitnesses);
-    const avg  = fitnesses.reduce((a, b) => a + b, 0) / fitnesses.length;
-    this.fitnessHistory.push({ best, avg });
+  // Advance one generation given parallel fitness scores (and matching per-agent
+  // {avgSpeed, distance} stats, used to record the winner's stats for the chart);
+  // returns the new networks array.
+  nextGeneration(fitnesses, agentStats = []) {
+    const best    = Math.max(...fitnesses);
+    const avg     = fitnesses.reduce((a, b) => a + b, 0) / fitnesses.length;
+    const winnerI = fitnesses.indexOf(best);
+    const winner  = agentStats[winnerI] || {};
+    this.fitnessHistory.push({
+      best, avg,
+      winnerAvgSpeed: winner.avgSpeed ?? 0,
+      winnerDistance: winner.distance ?? 0,
+    });
     this.generation++;
 
     // Rank by fitness descending

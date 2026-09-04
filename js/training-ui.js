@@ -7,6 +7,7 @@ const elGen           = document.getElementById('tp-gen');
 const elAlive         = document.getElementById('tp-alive');
 const elBest          = document.getElementById('tp-best');
 const elEpTime        = document.getElementById('tp-eptime');
+const elTimeLeft      = document.getElementById('tp-timeleft');
 const elSaved         = document.getElementById('tp-saved');
 const nnCanvas        = document.getElementById('nn-canvas');
 const chartCanvas     = document.getElementById('chart-canvas');
@@ -24,7 +25,7 @@ resetTrainingBtn.addEventListener('click', () => {
 const NN_W = nnCanvas.width;
 const NN_H = nnCanvas.height;
 
-const INPUT_LABELS  = ['-90°','-60°','-35°','-15°','0°','+15°','+35°','+60°','+90°','spd'];
+const INPUT_LABELS  = ['-70°','-35°','-15°','0°','+15°','+35°','+70°','spd'];
 const OUTPUT_LABELS = ['FL','FR','RL','RR'];
 const COLS = [40, NN_W / 2, NN_W - 40]; // x centres: input, hidden, output
 
@@ -129,31 +130,33 @@ function drawChart(history) {
     return;
   }
 
-  const maxF = Math.max(...history.map(h => h.best), 1);
+  const maxF     = Math.max(...history.map(h => h.best), 1);
+  const maxSpeed = Math.max(...history.map(h => h.winnerAvgSpeed || 0), 1);
+  const maxDist  = Math.max(...history.map(h => h.winnerDistance || 0), 1);
   const pad  = { t: 6, b: 16, l: 4, r: 4 };
   const gw   = CHART_W - pad.l - pad.r;
   const gh   = CHART_H - pad.t - pad.b;
 
   function toX(i) { return pad.l + (i / (history.length - 1)) * gw; }
-  function toY(v) { return pad.t + gh - (v / maxF) * gh; }
+  function toY(v, max) { return pad.t + gh - (v / max) * gh; }
 
-  // Avg line
-  chartCtx.beginPath();
-  history.forEach((h, i) => {
-    i === 0 ? chartCtx.moveTo(toX(i), toY(h.avg)) : chartCtx.lineTo(toX(i), toY(h.avg));
-  });
-  chartCtx.strokeStyle = 'rgba(88,166,255,0.45)';
-  chartCtx.lineWidth = 1;
-  chartCtx.stroke();
+  function drawLine(key, max, color, width) {
+    chartCtx.beginPath();
+    history.forEach((h, i) => {
+      const y = toY(h[key] || 0, max);
+      i === 0 ? chartCtx.moveTo(toX(i), y) : chartCtx.lineTo(toX(i), y);
+    });
+    chartCtx.strokeStyle = color;
+    chartCtx.lineWidth = width;
+    chartCtx.stroke();
+  }
 
-  // Best line
-  chartCtx.beginPath();
-  history.forEach((h, i) => {
-    i === 0 ? chartCtx.moveTo(toX(i), toY(h.best)) : chartCtx.lineTo(toX(i), toY(h.best));
-  });
-  chartCtx.strokeStyle = '#58a6ff';
-  chartCtx.lineWidth = 1.5;
-  chartCtx.stroke();
+  // Each series is normalized to its own max (fitness, m/s, and metres are on
+  // very different scales) so all three trends stay readable on one graph.
+  drawLine('avg',            maxF,     'rgba(88,166,255,0.45)', 1);
+  drawLine('winnerAvgSpeed', maxSpeed, '#f0883e',               1.2);
+  drawLine('winnerDistance', maxDist,  '#a371f7',               1.2);
+  drawLine('best',           maxF,     '#58a6ff',               1.5);
 
   // X-axis labels
   chartCtx.fillStyle = 'rgba(140,140,140,0.8)';
@@ -177,7 +180,10 @@ export function updateTrainingUI() {
   elGen.textContent    = tm.generation;
   elAlive.textContent  = `${tm.aliveCount} / 8`;
   elBest.textContent   = tm.bestEver.toFixed(0);
-  elEpTime.textContent = ((performance.now() - _episodeStart) / 1000).toFixed(1) + 's';
+  const elapsed  = (performance.now() - _episodeStart) / 1000;
+  const timeLeft = Math.max(0, tm.episodeMax - elapsed);
+  elEpTime.textContent   = elapsed.toFixed(1) + 's';
+  elTimeLeft.textContent = timeLeft.toFixed(1) + 's';
 
   const sv = saveSummary();
   elSaved.textContent = sv ? `gen ${sv.generation}` : 'none';

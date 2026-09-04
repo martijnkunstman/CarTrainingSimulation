@@ -107,9 +107,9 @@ Architecture is centralized in `config.js` (`NN_INPUT_SIZE`/`NN_HIDDEN_SIZE`/`NN
 
 ### Training UI (top-right panel in AI mode)
 
-- **Stats** — generation, alive count, best fitness ever, episode timer
+- **Stats** — generation, alive count, best fitness ever, episode timer, and a countdown to the current episode's timeout (`Time left`, grows by 1s per generation along with the episode length)
 - **Network diagram** — edges coloured green/red by weight sign and magnitude; nodes coloured by activation value
-- **Fitness chart** — blue line = best fitness per generation, dim line = average
+- **Fitness chart** — 4 lines, each normalized to its own scale: best fitness (bright blue), average fitness (dim blue), the generation-winning car's average speed (orange), and its distance travelled (purple) — with a colour-coded legend above the chart
 - **Speed & heading** — top-left HUD shows live speed and heading of the best alive car
 
 ### Finish detection
