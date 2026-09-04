@@ -60,6 +60,14 @@
 
 ## 2026-06-29 (continued)
 
+### Update bundled champion genome to the current architecture (v4.1)
+
+**Goal:** the old bundled champion (247 params, from the pre-v3.9 10/16/4 architecture) had been rejected by the `loadChampion()` shape guard ever since the network was shrunk to 8/10/4 — the 🏆 Load Champion button had no valid default on a fresh install.
+
+**Change:** `js/winner-brain.js`'s `CHAMPION_GENOME` replaced with a genome the user trained and saved to their own `localStorage` (`carTrainingWinner`, generation 26) under the current 8-input/10-hidden/4-output architecture — 134 params, matching `NN_INPUT_SIZE`/`NN_HIDDEN_SIZE`/`NN_OUTPUT_SIZE` in `config.js` exactly, so the shape guard added in v3.9 now passes and the button works again on any fresh install with no local training history.
+
+---
+
 ### Episode countdown timer + winner speed/distance on the fitness chart (v4.0)
 
 **Goal:** show how much time is left before the current generation's episode times out, and plot the winning car's average speed and distance travelled alongside fitness history.
