@@ -301,6 +301,7 @@ export class TrainingManager {
     this._built       = false;
     this._agentSpeeds = new Array(POP_SIZE).fill(0);
     this._agentDists  = Array.from({ length: POP_SIZE }, () => []);
+    this.episodeElapsed = 0; // seconds since the current generation's episode started
 
     // Restore from localStorage if a save exists
     const saved = load();
@@ -325,6 +326,7 @@ export class TrainingManager {
   start() {
     this._build();
     this.active = true;
+    this.episodeElapsed = 0;
     this.agents.forEach((a, i) => a.respawn(this.ga.networks[i]));
   }
 
@@ -366,6 +368,7 @@ export class TrainingManager {
   // After world.step(): suppress pitch, check kills, sync visuals
   postStep(dt) {
     if (!this.active) return;
+    this.episodeElapsed += dt;
     for (let i = 0; i < POP_SIZE; i++) {
       const a = this.agents[i];
       if (!a.alive) continue;
@@ -403,6 +406,7 @@ export class TrainingManager {
 
     const newNets = this.ga.nextGeneration(fitnesses, agentStats);
     this.generation = this.ga.generation + 1;
+    this.episodeElapsed = 0;
     this.agents.forEach((a, i) => a.respawn(newNets[i]));
 
     // Persist after every generation so progress is never lost
@@ -426,6 +430,7 @@ export class TrainingManager {
       nn.genome.set(CHAMPION_GENOME);
       if (i > 0) NeuralNetwork.mutate(nn.genome, 0.1, 0.2); // gentle mutation for diversity
     });
+    this.episodeElapsed = 0;
     if (this.active && this._built) {
       this.agents.forEach((a, i) => a.respawn(this.ga.networks[i]));
     }
@@ -438,6 +443,7 @@ export class TrainingManager {
     this.ga           = new GeneticAlgorithm({ popSize: POP_SIZE, eliteCount: 2, mutationRate: 0.12, mutationStrength: 0.35 });
     this.generation   = 1;
     this.bestEver     = 0;
+    this.episodeElapsed = 0;
     if (this.active && this._built) {
       this.agents.forEach((a, i) => a.respawn(this.ga.networks[i]));
     }

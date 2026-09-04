@@ -10,7 +10,7 @@ import { drawMinimap, refreshMinimapTrack } from './minimap.js';
 import { tickControls, updateSpinIndicators, sliderValues } from './controls.js';
 import { applyLateralGrip, suppressPitch } from './car-physics.js';
 import { trainingManager, refreshTrackSpline } from './training.js';
-import { updateTrainingUI, showTrainingPanel, hideTrainingPanel, resetEpisodeTimer } from './training-ui.js';
+import { updateTrainingUI, showTrainingPanel, hideTrainingPanel } from './training-ui.js';
 import { TrackSelectUI } from './track-select.js';
 
 // ── Init ───────────────────────────────────────────────────────────────────────
@@ -30,7 +30,6 @@ aiToggleBtn.addEventListener('click', () => {
     showTrainingPanel();
     document.getElementById('sensor-hud').style.display = 'none';
     document.getElementById('controls').style.display   = 'none';
-    resetEpisodeTimer();
     trainingManager.start();
   } else {
     hideTrainingPanel();

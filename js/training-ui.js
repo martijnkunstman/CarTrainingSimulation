@@ -167,12 +167,6 @@ function drawChart(history) {
 }
 
 // ── Public update ──────────────────────────────────────────────────────────────
-let _episodeStart = performance.now();
-
-export function resetEpisodeTimer() {
-  _episodeStart = performance.now();
-}
-
 export function updateTrainingUI() {
   const tm   = trainingManager;
   const best = tm.getBestAlive();
@@ -180,9 +174,11 @@ export function updateTrainingUI() {
   elGen.textContent    = tm.generation;
   elAlive.textContent  = `${tm.aliveCount} / 8`;
   elBest.textContent   = tm.bestEver.toFixed(0);
-  const elapsed  = (performance.now() - _episodeStart) / 1000;
-  const timeLeft = Math.max(0, tm.episodeMax - elapsed);
-  elEpTime.textContent   = elapsed.toFixed(1) + 's';
+  // Driven by the simulation's own physics dt (tm.episodeElapsed), not a
+  // separate wall-clock timer — that avoided ever resetting between
+  // generations, so "time left" would run out once and stay stuck at 0.
+  const timeLeft = Math.max(0, tm.episodeMax - tm.episodeElapsed);
+  elEpTime.textContent   = tm.episodeElapsed.toFixed(1) + 's';
   elTimeLeft.textContent = timeLeft.toFixed(1) + 's';
 
   const sv = saveSummary();
