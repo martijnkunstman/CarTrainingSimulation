@@ -337,7 +337,7 @@ export class TrainingManager {
   }
 
   // Before world.step(): sense each alive agent and apply motors + lateral grip
-  preStep() {
+  preStep(dt) {
     if (!this.active) return;
     for (let i = 0; i < POP_SIZE; i++) {
       const a = this.agents[i];
@@ -346,7 +346,7 @@ export class TrainingManager {
       a.lastDists          = dists;
       this._agentDists[i]  = dists;
       this._agentSpeeds[i] = a.sense(dists);
-      applyLateralGrip(a.body, a.wheels, GRIP);
+      applyLateralGrip(a.body, a.wheels, GRIP, dt, a.lastOutputs);
     }
   }
 
@@ -356,7 +356,7 @@ export class TrainingManager {
     for (let i = 0; i < POP_SIZE; i++) {
       const a = this.agents[i];
       if (!a.alive) continue;
-      suppressPitch(a.body);
+      suppressPitch(a.body, dt);
       const finished = a.evaluate(dt, this._agentDists[i], this._agentSpeeds[i], EPISODE_MAX + this.generation, this.generation);
       a.syncVisuals();
       if (finished) { this._onFinish(a); return; }

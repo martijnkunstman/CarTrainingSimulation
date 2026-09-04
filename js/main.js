@@ -110,7 +110,7 @@ function animate(time) {
 
   if (aiMode) {
     // Pre-step: AI sense + motors + lateral grip
-    trainingManager.preStep();
+    trainingManager.preStep(dt);
 
     world.step(1 / 60, dt, 3);
 
@@ -130,11 +130,11 @@ function animate(time) {
   } else {
     // Manual mode
     tickControls();
-    applyLateralGrip(carBody, wheelBodies, GRIP);
+    applyLateralGrip(carBody, wheelBodies, GRIP, dt, sliderValues);
 
     world.step(1 / 60, dt, 3);
 
-    suppressPitch(carBody);
+    suppressPitch(carBody, dt);
     syncVisuals(carBody, wheelBodies, sliderValues);
     updateSensors();
     drawMinimap();

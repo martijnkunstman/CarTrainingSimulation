@@ -10,7 +10,10 @@ export const CAR_MASS        = 500;
 export const WHEEL_MASS      = 10;
 export const MAX_MOTOR_SPEED = 60;   // high cap so force (not speed limit) determines terminal velocity
 export const MAX_MOTOR_FORCE = 280;  // per wheel — 4 wheels give 4× total force → higher top speed
-export const GRIP            = 0.88;
+export const GRIP            = 0.88;  // baseline lateral-slip removal, as a fraction per 60fps-equivalent frame
+export const TIRE_LAT_ACCEL_CAP = 35;  // m/s^2 — max lateral deceleration a wheel's tire can apply in one step (progressive slip cap)
+export const BODY_LAT_ACCEL_CAP = 20;  // m/s^2 — same cap for the chassis-level correction (softer, since it's a secondary effect)
+export const PITCH_SUPPRESSION  = 0.85; // fraction of pitch angular velocity removed per 60fps-equivalent frame (softened from a hard 0.97 snap)
 export const SPIN_THRESHOLD  = 3;
 export const START_Y         = WHEEL_RADIUS + CAR_BODY_H * 0.5 + 0.01;
 

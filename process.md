@@ -60,6 +60,23 @@
 
 ## 2026-06-29 (continued)
 
+### Physics tuning: friction-circle grip, progressive slip, softer pitch damping (v3.8)
+
+**Goal:** address weaknesses in the arcade-style tire model identified during a physics review — lateral grip was a flat, framerate-dependent velocity snap, decoupled from how hard the wheel was being driven, and pitch suppression removed 97% of pitch rate every frame regardless of dt.
+
+**`js/car-physics.js` rewritten:**
+- `decayFraction(perFrameFraction, dt)` — converts a "fraction removed per 60fps-equivalent frame" tuning constant into a continuous-time decay, so `GRIP`/`PITCH_SUPPRESSION` behave the same at any frame dt instead of silently changing strength with framerate.
+- `applyLateralGrip(carBody, wheelBodies, grip, dt, throttleFractions)` — two behavioral changes:
+  - **Friction circle**: each wheel's grip is scaled by `capFrac = sqrt(1 - throttle^2)` where `throttle` is that wheel's current motor command (-1..1). A wheel at full throttle now has ~zero lateral grip left, so flooring the accelerator through a corner costs traction — longitudinal and lateral forces share one budget, as with real tires, instead of being fully independent.
+  - **Progressive slip**: the per-step correction is capped to a maximum lateral deceleration (`TIRE_LAT_ACCEL_CAP` / `BODY_LAT_ACCEL_CAP`, new config constants), so a large sudden slip (e.g. a hard side impact) can't be erased in a single frame — the car slides briefly instead of snapping straight.
+- `suppressPitch(carBody, dt)` — same dt-normalization; softened `PITCH_SUPPRESSION` from a hardcoded 0.97 to a tunable `0.85`, leaving a bit of natural nose dip/lift instead of erasing pitch almost entirely.
+
+**Call sites updated** to pass `dt` and per-wheel throttle: `main.js` passes `sliderValues` (manual mode) and `training.js`'s `preStep(dt)` passes each agent's `lastOutputs` (AI mode) — both are the -1..1 per-wheel motor commands already computed for that frame.
+
+**Explicitly deferred** (per user decision): replacing the hinge+velocity-hack car model with `CANNON.RaycastVehicle` (real suspension, wheel raycasting, native slip friction) — a much larger rewrite touching car.js, car-physics.js, controls.js, car-visual.js and training.js's AI agent construction. Kept for a future session if realism is prioritized over the current training-throughput-optimized architecture.
+
+---
+
 ### localStorage persistence + reset button (v2.1 → v2.1, no version bump at time)
 
 - `js/storage.js` — new module: `save()`, `load()`, `clearSave()`, `saveSummary()`. Genomes serialised as plain JSON arrays (Float32Array is not JSON-serialisable); restored to Float32Array on load.

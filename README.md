@@ -134,10 +134,17 @@ This currently runs as a modal over the main simulation rather than a separate p
 
 ## Physics Notes
 
+The car is not a full vehicle simulation — it's four independently-motored wheels on hinges (no steering axis; turning comes purely from differential wheel speed), plus a hand-tuned lateral-grip correction standing in for tire friction. This is a deliberate simplification for training throughput/stability, not an oversight — see `explain.md` and `process.md` for the reasoning.
+
 - `MAX_MOTOR_SPEED` is set high (60 rad/s) so the force limit, not the speed cap, determines terminal velocity.
-- `suppressPitch()` cancels 97% of local-X angular velocity after each physics step to prevent nose-lift from motor reaction torque.
+- **Lateral grip** (`applyLateralGrip()` in `car-physics.js`) is a velocity-correction hack, not a real contact force, but it's coupled and bounded rather than a flat snap:
+  - **Friction circle** — each wheel's grip shrinks as `sqrt(1 - throttle^2)`, where `throttle` is that wheel's current motor command. Flooring the accelerator through a corner now costs cornering grip, the way a real tire shares one friction budget between accelerating and turning.
+  - **Progressive slip** — the correction is capped to a maximum lateral deceleration (`TIRE_LAT_ACCEL_CAP` / `BODY_LAT_ACCEL_CAP` in `config.js`), so large sudden slip (e.g. a hard side impact) can't be erased in one frame — the car slides briefly instead of snapping straight.
+  - The correction is normalized against `dt` so it behaves the same regardless of frame rate (previously it was applied once per animation frame with no dt scaling).
+- `suppressPitch()` damps local-X angular velocity after each physics step to prevent nose-lift from motor reaction torque, using the same dt-normalized decay as lateral grip; softened to `PITCH_SUPPRESSION = 0.85` (was a hard 0.97) so a little natural pitch remains.
 - Wall bodies use collision filter group 2; sensor raycasts target only group 2, ignoring the car and wheels.
 - Manual car uses collision filter group 8; each AI car gets a unique power-of-2 group bit (`1 << (4 + id)`) with mask 3 (ground + walls only), so AI cars never collide with each other or the manual car.
+- Not modeled: real steering geometry, suspension/weight transfer, and longitudinal wheel-slip (the motor force cap limits acceleration but doesn't model wheelspin against a traction limit). `CANNON.RaycastVehicle` would address these but requires a larger rewrite — deferred for now in favor of the current training-optimized architecture.
 
 ---
 
